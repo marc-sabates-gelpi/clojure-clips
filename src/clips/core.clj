@@ -414,3 +414,49 @@
     clojure.string/split-lines
     (as-> coll (map read-string coll))
     count-steps)
+;;11/01/2018
+;;--- Day 6: Memory Reallocation ---
+(defn redistribute-blocks [coll-of-colls]
+  (let [current-coll (vec (last coll-of-colls))
+        size (count current-coll)
+        max (first (reverse (sort current-coll)))
+        index (.indexOf current-coll max)]
+    (loop [working-coll (assoc current-coll index 0) current-index (mod (inc index) size) blocks (get current-coll index)]
+      (if (= 0 blocks)
+        (conj coll-of-colls working-coll)
+        (recur (update working-coll current-index inc) (mod (inc current-index) size) (dec blocks))))))
+(defn cycles-while-not-repeated-config [coll]
+  (loop [working-coll-of-colls (vector coll)]
+    (if (not= (count working-coll-of-colls) (count (distinct working-coll-of-colls)))
+      working-coll-of-colls
+      (recur (redistribute-blocks working-coll-of-colls)))))
+(defn skip-until-fst-to-be-repeated [coll]
+  (let [el (last coll)] (drop-while #(not= % el) coll)))
+(-> "banks.txt"
+    slurp
+    (clojure.string/split #"\s")
+    (as-> c (map read-string c))
+    cycles-while-not-repeated-config
+    skip-until-fst-to-be-repeated
+    count
+    dec)
+(filter #(val %) (zipmap '(0 1 2 3) '((1 2 3) (3 2 1) (2 1 3) (1 2 3))))
+(let [c (zipmap '(0 1 2 3) '((1 2 3) (3 2 1) (2 1 3) (1 2 3)))] (some #{(val (first c))} (vals c)))
+(filter #(some #{'(3 2 3)} '((1 2 3) (3 2 1))) '((1 2 3) (3 2 1)))
+(some #{4} '(1 2 3))
+(filter #('nil) '((1 2 3) (3 2 1)))
+(filter #(some #{%} '((1 2 3) (3 2 1))) '((2 2 3) (3 2 1)))
+(filter #(some #{(val %)} (distinct (vals {0 (1 2 3) 1 (3 2 1) 2 (1 2 3)}))) {0 (1 2 3) 1 (3 2 1) 2 (1 2 3)})
+(remove nil? '((1 2 3) (3 2 1)))
+(remove nil? {0 (1 2 3) 1 (3 2 1) 2 (1 2 3)})
+(#{'(1 2)} (vals {0 '(1 2) 1 '(3 4)}))
+(#{'(1 2)} '((1 2) (3 4)))
+(find ['(1) '(2) '(3)] 2)
+(drop-while #(not= % '(1)) '((3) (2) (1) (2)))
+(conj [1] 2)
+()
+(-> [0 2 7 0]
+    cycles-while-not-repeated-config
+    skip-until-fst-to-be-repeated
+    count
+    dec)
