@@ -460,3 +460,126 @@
     skip-until-fst-to-be-repeated
     count
     dec)
+;;12/01/2018
+;;--- Day 7: Recursive Circus ---
+(defn F
+  ([x] x)
+  ([acc el] (-> acc
+                (update 0 conj (get el 0))
+                (update 1 #(apply conj %1 %2) (get el 2)))))
+(-> "tower.txt"
+    slurp
+    (clojure.string/replace " " "")
+    (clojure.string/split-lines)
+    (as-> s (transduce (comp
+                        (map #(re-find #"([a-z]+)\(([0-9]+)\)(?:->([a-z,]+))?" %))
+                        (remove #(nil? (get % 3)))
+                        (map #(vec (drop 1 %)))
+                        (map #(vec (remove nil? %)))
+                        (map #(if (nil? (get % 2)) % (update % 2 clojure.string/split #","))))
+                       F
+                       [#{} #{}]
+                       s))
+    (as-> x (apply clojure.set/difference x))
+    print)
+(transduce (comp
+            (map #(re-find #"([a-z]+)\(([0-9]+)\)(?:->([a-z,]+))?" %))
+            (remove #(nil? (get % 3)))
+            (map #(vec (drop 1 %)))
+            (map #(vec (remove nil? %)))
+            (map #(if (nil? (get % 2)) % (update % 2 clojure.string/split #",")))
+            )
+           F
+           ['() '()]
+           ["lwrti(72)->bli,bli"])
+(def xf (comp (filter odd?) (map #(* 2 %))))
+(transduce xf #(+ %1 %2) (range 5))
+(#(+ %1 %2) 1 2)
+(apply conj '(7 9) [1 2 3])
+(conj #{} "bli")
+(apply conj #{} ["bli" "blo"])
+(apply clojure.set/difference [#{"bli" "blo"} #{"bli"}])
+;;13/01/2018
+;;--- Day 7: Recursive Circus --- Part 2
+(defn find-unbalanced [t]
+  (when-let [chld (:children t)]
+    (do
+      (if (not (:children-balanced? t))
+        (let [{:keys [name children-balanced? weight-correction children]} t
+              children-brief (map #(hash-map :name (:name %) :own-weight (:own-weight %) :weight (:weight %)) children)]
+          (clojure.pprint/pprint {:name name :children-balanced? children-balanced? :weight-correction weight-correction :children children-brief})))
+      (map #(find-unbalanced %) (:children t))
+      nil)))
+(defn my-distinct? [coll]
+   (< 1 (count (set coll))))
+(defn weigh [t name]
+  (let [current (get t name)
+        [_ weight children-names] current
+        children-results (map #(weigh t %) (sequence children-names))
+        result {:name name
+                :weight weight
+                :own-weight weight}]
+    (if (not (empty? children-results))
+      (let [children-weights (map :weight children-results)]
+        (-> result
+            (update :weight + (apply + children-weights))
+            (assoc :children-balanced? (not (my-distinct? children-weights)))
+            (as-> r (if (not (:children-balanced? r))
+                      (assoc r :weight-correction (apply - (set children-weights)))
+                      r))
+            (assoc :children children-results)))
+      result)))
+(-> "tower.txt"
+    slurp
+    (clojure.string/split-lines)
+    (as-> s (sequence (comp
+                       (map #(clojure.string/replace % " " ""))
+                       (map #(re-find #"([a-z]+)\(([0-9]+)\)(?:->([a-z,]+))?" %))
+                       (map #(vec (drop 1 %)))
+                       (map #(vec (remove nil? %)))
+                       (map #(if (nil? (get % 2)) % (update % 2 clojure.string/split #",")))
+                       (map #(update % 1 read-string)))
+                      s))
+    (as-> s (zipmap (map first s) s))
+    (weigh "qibuqqg")
+    clojure.pprint/pprint
+    ;;find-unbalanced
+    )
+(sequence nil)
+(sequence [1 2 3])
+(not (apply distinct? '(1 1)))
+(->
+ "pbga (66)
+xhth (57)
+ebii (61)
+havc (66)
+ktlj (57)
+fwft (72) -> ktlj, cntj, xhth
+qoyq (66)
+padx (45) -> pbga, havc, qoyq
+tknk (41) -> ugml, padx, fwft
+jptl (61)
+ugml (68) -> gyxo, ebii, jptl
+gyxo (61)
+cntj (57)"
+ (clojure.string/split-lines)
+    (as-> s (sequence (comp
+                       (map #(clojure.string/replace % " " ""))
+                       (map #(re-find #"([a-z]+)\(([0-9]+)\)(?:->([a-z,]+))?" %))
+                       (map #(vec (drop 1 %)))
+                       (map #(vec (remove nil? %)))
+                       (map #(if (nil? (get % 2)) % (update % 2 clojure.string/split #",")))
+                       (map #(update % 1 read-string)))
+                      s))
+    (as-> s (zipmap (map first s) s))
+    (weigh "tknk")
+    ;;clojure.pprint/pprint
+    find-unbalanced
+    )
+(apply distinct? '(251 243 243))
+(distinct? 251 243 243)
+((fn my-distinct? [coll]
+   (< 1 (count (set coll)))) '(243 243 243))
+(count (set '(2 2 2)))
+(apply - #{1 2})
+;;--- Day 8: I Heard You Like Registers ---
