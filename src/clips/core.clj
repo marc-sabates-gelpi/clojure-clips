@@ -582,4 +582,145 @@ cntj (57)"
    (< 1 (count (set coll)))) '(243 243 243))
 (count (set '(2 2 2)))
 (apply - #{1 2})
+(-> "king"
+    slurp
+    clojure.string/split-lines
+    (as-> coll (filter #(clojure.string/includes? % "mobi") coll))
+    (as-> coll (filter #(clojure.string/includes? % "Tower") coll))
+    clojure.pprint/pprint)
+(prn "=====================================================================")
 ;;--- Day 8: I Heard You Like Registers ---
+;;14/01/2018
+(defn execute
+  [regs [reg op value _ logical-reg logical-op logical-value]]
+  (-> regs
+      (as-> registers (if ((eval (read-string logical-op)) (get registers (keyword logical-reg) 0) logical-value)
+                        (assoc registers (keyword reg) ((eval (read-string op)) (get registers  (keyword reg) 0) value))
+                        registers))
+      (as-> registers (assoc registers :max-seen-value (apply max (vals registers))))))
+(defn convert-ops [op]
+  (cond
+    (= op "==") "="
+    (= op "!=") "not="
+    (= op "inc") "+"
+    (= op "dec") "-"
+    :else op))
+(-> "registers.txt"
+    slurp
+    clojure.string/split-lines
+    (as-> instructions (transduce (comp
+                                   (map #(clojure.string/split % #"\s"))
+                                   (map #(update % 2 read-string))
+                                   (map #(update % 6 read-string))
+                                   (map #(update % 5 convert-ops))
+                                   (map #(update % 1 convert-ops)))
+                                  (completing execute)
+                                  (hash-map :max-seen-value 0)
+                                  instructions))
+    (as-> registers (apply max (vals (dissoc registers :max-seen-value)))))
+(-> "b inc 5 if a > 1
+a inc 1 if b < 5
+c dec -10 if a >= 1
+c inc -20 if c == 10"
+    clojure.string/split-lines
+    (as-> instructions (transduce (comp
+                                   (map #(clojure.string/split % #"\s"))
+                                   (map #(update % 2 read-string))
+                                   (map #(update % 6 read-string))
+                                   (map #(update % 5 convert-ops))
+                                   (map #(update % 1 convert-ops)))
+                                  (completing execute)
+                                  (hash-map :max-seen-value 0)
+                                  instructions))
+    (as-> registers (apply max (vals (dissoc registers :max-seen-value)))))
+((eval (read-string "=")) 1 1)
+(- 0 -1)
+(apply max '(1 2))
+(apply max {:a 1 :b 5 :c 1})
+(apply max (vals {:a 0}))
+;; --- Part 2 ---
+(-> "registers.txt"
+    slurp
+    clojure.string/split-lines
+    (as-> instructions (transduce (comp
+                                   (map #(clojure.string/split % #"\s"))
+                                   (map #(update % 2 read-string))
+                                   (map #(update % 6 read-string))
+                                   (map #(update % 5 convert-ops))
+                                   (map #(update % 1 convert-ops)))
+                                  (completing execute)
+                                  (hash-map :max-seen-value 0)
+                                  instructions))
+    :max-seen-value)
+;;--- Day 9: Stream Processing ---
+;;--Part 1--
+(->  "stream.txt"
+     slurp
+ ;;"{}"
+ ;; "{{{}}}"
+ ;; "{{},{}}"
+ ;; "{{{},{},{{}}}}"
+ ;; "{<a>,<a>,<a>,<a>}"
+ ;; "{{<ab>},{<ab>},{<ab>},{<ab>}}"
+ ;; "{{<!!>},{<!!>},{<!!>},{<!!>}}"
+ ;; "{{<a!>},{<a!>},{<a!>},{<ab>}}"
+ ;; "{{<!>},{<!>},{<!>},{<a>}}"
+ ;; "{<{},{},{{}}>}"
+ ;; "<{o\"i!a,<{i<a>"
+ ;; "<!!!>>"
+ ;; "<!!>"
+ ;; "<{!>}>"
+ ;; "<<<<>"
+ ;; "<random characters>"
+ ;; "<>"
+    (clojure.string/replace #"!." "")
+    (clojure.string/replace #"<[^>]*>" "")
+    (clojure.string/replace #"," "")
+    (clojure.string/replace #"\n" "")
+    (as-> stream (reduce add-groups {:group-value 0 :total 0} (sequence stream)))
+    prn)
+(clojure.string/replace "1!.!!"  #"!." "")
+(clojure.string/replace "a<c>b"  #"<[^>]*>" "")
+(def m (re-matcher #"<[^>]>" "<<a>>"))
+(re-find m)
+(re-groups (re-matcher #"<[^>]>" "<<a>>"))
+(defn add-groups [state elem]
+  (cond
+    (= elem \{) (update state :group-value inc)
+    (= elem \}) (-> state
+                     (as-> s (update s :total + (get s :group-value)))
+                     (update :group-value dec))
+    :else state))
+(reduce add-groups {:group-value 0 :total 0} (sequence "{a{a}b{}}"))
+;; -- Part 2 --
+(->   "stream.txt"
+      slurp
+ ;;"{}"
+ ;; "{{{}}}"
+ ;; "{{},{}}"
+ ;; "{{{},{},{{}}}}"
+ ;; "{<a>,<a>,<a>,<a>}"
+ ;; "{{<ab>},{<ab>},{<ab>},{<ab>}}"
+ ;; "{{<!!>},{<!!>},{<!!>},{<!!>}}"
+ ;; "{{<a!>},{<a!>},{<a!>},{<ab>}}"
+ ;; "{{<!>},{<!>},{<!>},{<a>}}"
+ ;; "{<{},{},{{}}>}"
+ ;; "<{o\"i!a,<{i<a>"
+ ;; "<!!!>>"
+ ;; "<!!>"
+ ;; "<{!>}>"
+ ;; "<<<<>"
+ ;; "<random characters>"
+ ;; "<>"
+    (clojure.string/replace #"!." "")
+    (as-> s (re-seq #"(<[^>]*>)" s))
+    (as-> garbage-grps (map first garbage-grps))
+    (as-> garbage-grps (map #(butlast (drop 1 %)) garbage-grps))
+    (as-> garbage-grps (map count garbage-grps))
+    (as-> garbage-grps (apply + garbage-grps))
+    prn)
+(let [m (re-matcher #"(<[^>]*>)" "<1><22>")]
+  (re-find m)
+  (re-find m)
+  (re-groups m))
+(re-seq #"(<[^>]*>)" "<1><22>>")
