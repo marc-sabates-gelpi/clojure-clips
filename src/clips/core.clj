@@ -724,3 +724,27 @@ c inc -20 if c == 10"
   (re-find m)
   (re-groups m))
 (re-seq #"(<[^>]*>)" "<1><22>>")
+;;15/01/2018
+;;--- Day 10: Knot Hash --- Part 1
+(def ^:constant LIST_SIZE 256)
+(defn reverse-around [coll position len]
+ (let [rev (reverse (take len (drop position (into coll coll))))]
+   (loop [index position working-coll coll working-rev rev]
+     (if (empty? working-rev)
+       working-coll
+       (recur (mod (inc index) LIST_SIZE) (assoc working-coll index (first working-rev)) (rest working-rev))))))
+(defn knot-hash [{:keys [position skip] :as state} len]
+ (-> state
+     (update :numbers reverse-around position len)
+     (update :position (comp #(mod % LIST_SIZE) +) len skip)
+     (update :skip inc)))
+(-> "63,144,180,149,1,255,167,84,125,65,188,0,2,254,229,24"
+ ;;"3,4,1,5"
+    (clojure.string/split #",")
+    (as-> nums (transduce (comp
+                           (map read-string))
+                          (completing knot-hash)
+                          {:numbers (vec (range LIST_SIZE)) :position 0 :skip 0}
+                          nums))
+    (as-> nums (apply * (take 2 (:numbers nums))))
+    clojure.pprint/pprint)
