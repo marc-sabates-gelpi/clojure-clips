@@ -748,3 +748,70 @@ c inc -20 if c == 10"
                           nums))
     (as-> nums (apply * (take 2 (:numbers nums))))
     clojure.pprint/pprint)
+;;-- Part 2
+(def ^:constant LIST_SIZE 5)
+(-> "49,44,50,44,51"
+    (clojure.string/split #",")
+    (as-> nums (transduce (comp
+                           (map read-string))
+                          (completing knot-hash)
+                          {:numbers (vec (range LIST_SIZE)) :position 0 :skip 0}
+                          nums)))
+;;16/01/2018
+(int \ )
+(defn ascii->binary [s]
+  (-> s
+      sequence
+      (as-> chars (transduce (comp
+                              (map int)
+                              (map #(str % ",")))
+                             str
+                             chars))))
+(def ^:constant STANDARD_LENGTH_SUFFIX "17,31,73,47,23")
+(def ^:constant ROUNDS 64)
+(str (ascii->binary "1,2,3") STANDARD_LENGTH_SUFFIX)
+(str (ascii->binary "") STANDARD_LENGTH_SUFFIX)
+(defn run-round [lengths state]
+  (-> lengths
+      (clojure.string/split #",")
+      (as-> nums (transduce (comp
+                             (map read-string))
+                            (completing knot-hash)
+                            state
+                            nums))))
+(defn sparse-hash [lengths]
+  (let [salted-lenghts (str (ascii->binary lengths) STANDARD_LENGTH_SUFFIX)]
+      (loop [rounds-left ROUNDS state {:numbers (vec (range LIST_SIZE)) :position 0 :skip 0}]
+        (if (= 0 rounds-left)
+          state
+          (recur (dec rounds-left) (run-round salted-lenghts state))))))
+(sparse-hash "3,4,1,5")
+(defn dense-hash [{:keys [numbers]}]
+  (-> numbers
+       (as-> nums (partition 16 nums))
+       (as-> grps (transduce (comp
+                         (map #(apply bit-xor %))
+                         (map #(Integer/toHexString %))
+                         (map #(->> %
+                                    (str "0")
+                                    reverse
+                                    (take 2)
+                                    reverse
+                                    (apply str))))
+                        str grps))))
+(-> "63,144,180,149,1,255,167,84,125,65,188,0,2,254,229,24"
+ ;;""
+ ;;"AoC 2017"
+ ;;"1,2,3"
+ ;;"1,2,4"
+    sparse-hash
+    dense-hash
+    println)
+(dense-hash '(65 27 9 1 4 3 40 50 91 7 6 0 2 5 68 22 65 27 9 1 4 3 40 50 91 7 6 0 2 5 68 22))
+(Integer/toHexString 3)
+(->> 40
+     (str "0")
+     reverse
+     (take 2)
+     reverse
+     (apply str))
