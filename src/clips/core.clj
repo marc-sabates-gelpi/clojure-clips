@@ -818,57 +818,56 @@ c inc -20 if c == 10"
 ;;17/01/2018
 ;;--- Day 11: Hex Ed --- Part 1
 (defn outline-steps [steps]
-  (let [part (group-by identity steps)]
-    (hash-map :n (count (get part "n"))
-              :s (count (get part "s"))
-              :ne (count (get part "ne"))
-              :nw (count (get part "nw"))
-              :se (count (get part "se"))
-              :sw (count (get part "sw")))))
+  (let [freq (frequencies steps)]
+    (zipmap (map (comp keyword key) freq) (vals freq))))
 (outline-steps '("n" "n" "s" "sw" "n" "s" "ne" "s" "nw" "s" "se" "n" "sw" "s"))
 (group-by identity '("n" "n" "s" "sw" "n" "s" "ne" "s" "nw" "s" "se" "n" "sw" "s"))
 (partition-by identity '("n" "n" "s" "sw" "n" "s" "ne" "s" "nw" "s" "se" "n" "sw" "s"))
-(defn rem-simple-opposites [steps & keys]
-  (let [minimum (apply min (map #(get steps %) keys))]
-    (update-many steps keys - minimum)))
 (defn rem-opposites [steps]
   (-> steps
-      (rem-simple-opposites :n :s)
-      (rem-simple-opposites :ne :sw)
-      (rem-simple-opposites :nw :se)))
+      (do-simplify '(:n :s) '())
+      (do-simplify '(:ne :sw) '())
+      (do-simplify '(:nw :se) '())))
 (defn update-many [m keys f x]
   (loop [looping-m m looping-keys keys]
     (if (empty? looping-keys)
       looping-m
       (recur (update looping-m (first looping-keys) f x) (rest looping-keys)))))
-(defn take-simple-shortcut [steps origin shortcut]
-  (let [minimum (apply min (map #(get steps %) origin))]
-    (-> steps
-        (update-many origin - minimum)
-        (update-many shortcut + minimum))))
+(defn do-simplify [steps orig repl]
+  (let [minimum (apply min (map (partial get steps) orig))]
+    (if (>= 0 minimum)
+      steps
+      (-> steps
+          (update-many orig - minimum)
+          (update-many repl + minimum)))))
 (defn take-shortcuts [steps]
   (-> steps
-      (take-simple-shortcut '(:ne :s) '(:se))
-      (take-simple-shortcut '(:nw :s) '(:sw))
-      (take-simple-shortcut '(:se :n) '(:ne))
-      (take-simple-shortcut '(:sw :n) '(:nw))
-      (take-simple-shortcut '(:se :sw) '(:s))
-      (take-simple-shortcut '(:ne :nw) '(:n))))
+      (do-simplify '(:ne :s) '(:se))
+      (do-simplify '(:nw :s) '(:sw))
+      (do-simplify '(:se :n) '(:ne))
+      (do-simplify '(:sw :n) '(:nw))
+      (do-simplify '(:se :sw) '(:s))
+      (do-simplify '(:ne :nw) '(:n))))
 (defn simplify-steps [steps]
   (loop [looping-steps steps looping-prev-steps {}]
     (if (= looping-steps looping-prev-steps)
       looping-steps
       (recur (-> looping-steps
-                 rem-opposites
-                 take-shortcuts) looping-steps))))
+                 take-shortcuts
+                 rem-opposites) looping-steps))))
 (-> "hexed.txt"
     slurp
  ;; "ne,ne,ne"
  ;; "ne,ne,sw,sw"
  ;; "ne,ne,s,s"
  ;; "se,sw,se,sw,sw"
-    (clojure.string/split #",")
+ ;; "se,n,n,se,sw,s,s,ne,nw,sw,nw,n"
+ (clojure.string/split #",")
     outline-steps
     simplify-steps
-    ;;(as-> steps (transduce (map val) + steps))
-    )
+    (as-> steps (transduce (map val) + steps))
+    println)
+;;18/01/2018
+(frequencies '("n" "n" "s" "sw" "n" "s" "ne" "s" "nw" "s" "se" "n" "sw" "s"))
+(group-by identity '("n" "n" "s" "sw" "n" "s" "ne" "s" "nw" "s" "se" "n" "sw" "s"))
+(count (get (group-by identity '("n" "n" "s" "sw" "n" "s" "ne" "s" "nw" "s" "se" "n" "sw" "s")) "n"))
