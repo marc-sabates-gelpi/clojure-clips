@@ -834,12 +834,12 @@ c inc -20 if c == 10"
       looping-m
       (recur (update looping-m (first looping-keys) f x) (rest looping-keys)))))
 (defn do-simplify [steps orig repl]
-  (let [minimum (apply min (map (partial get steps) orig))]
+  (let [minimum (apply min (map #(get steps % 0) orig))]
     (if (>= 0 minimum)
       steps
       (-> steps
-          (update-many orig - minimum)
-          (update-many repl + minimum)))))
+          (update-many orig (fnil - 0) minimum)
+          (update-many repl (fnil + 0) minimum)))))
 (defn take-shortcuts [steps]
   (-> steps
       (do-simplify '(:ne :s) '(:se))
@@ -848,7 +848,7 @@ c inc -20 if c == 10"
       (do-simplify '(:sw :n) '(:nw))
       (do-simplify '(:se :sw) '(:s))
       (do-simplify '(:ne :nw) '(:n))))
-(defn simplify-steps [steps]
+(defn simplify-and-cancel-steps [steps]
   (loop [looping-steps steps looping-prev-steps {}]
     (if (= looping-steps looping-prev-steps)
       looping-steps
@@ -864,10 +864,99 @@ c inc -20 if c == 10"
  ;; "se,n,n,se,sw,s,s,ne,nw,sw,nw,n"
  (clojure.string/split #",")
     outline-steps
-    simplify-steps
+    simplify-and-cancel-steps
     (as-> steps (transduce (map val) + steps))
     println)
 ;;18/01/2018
 (frequencies '("n" "n" "s" "sw" "n" "s" "ne" "s" "nw" "s" "se" "n" "sw" "s"))
 (group-by identity '("n" "n" "s" "sw" "n" "s" "ne" "s" "nw" "s" "se" "n" "sw" "s"))
 (count (get (group-by identity '("n" "n" "s" "sw" "n" "s" "ne" "s" "nw" "s" "se" "n" "sw" "s")) "n"))
+(defn simplify-steps [steps]
+  (loop [looping-steps steps looping-prev-steps {}]
+    (if (= looping-steps looping-prev-steps)
+      looping-steps
+      (recur (-> looping-steps
+                 take-shortcuts) looping-steps))))
+(-> "hexed.txt"
+    slurp
+ ;; "ne,ne,ne"
+ ;; "ne,ne,sw,sw"
+ ;; "ne,ne,s,s"
+ ;; "se,sw,se,sw,sw"
+ ;; "se,n,n,se,sw,s,s,ne,nw,sw,nw,n"
+ (clojure.string/split #",")
+    outline-steps
+    simplify-steps
+    (as-> steps (transduce (map val) + steps))
+    println)
+;;19/01/2018
+(defn get-all-partials [coll]
+ (loop [res [] looping-coll coll prev []]
+       (if (empty? looping-coll)
+           res
+           (recur (conj res (conj prev (first looping-coll))) (rest looping-coll) (conj prev (first looping-coll))))))
+(-> "hexed.txt"
+    slurp
+    ;;"se,n,n,se,se,sw,sw,s,s,ne,nw,sw,nw,n"
+    (clojure.string/split #",")
+    get-all-partials
+    ;; Idea by courtesy of Dave!
+    (as-> c (map #(-> %
+                      outline-steps
+                      simplify-and-cancel-steps
+                      (as-> steps (transduce (map val) + steps))) c))
+    (as-> away (apply max away))
+    println)
+;; --- Day 12: Digital Plumber --- Part 1
+(-> "plumber.txt"
+ slurp
+ ;; "0 <-> 2
+;; 1 <-> 1
+;; 2 <-> 0, 3, 4
+;; 3 <-> 2, 4
+;; 4 <-> 2, 3, 6
+;; 5 <-> 6
+;; 6 <-> 4, 5"
+ (clojure.string/split-lines)
+ (as-> pipes (sequence (comp
+                        (map (partial re-seq #"[0-9]+"))
+                        (map #(map read-string %)))
+                       pipes))
+ (as-> p (zipmap (map first p) (map rest p)))
+ (as-> p (find-group 0 p))
+ count
+ prn)
+(re-seq #"([0-9]+)\s+<->\s+([0-9]+)(?:,\s+([0-9]+))*" "0 <-> 2, 3")
+;;20/01/2017
+(defn find-group [n conns]
+  (loop [group #{}
+         remaining #{n}]
+    (if (empty? remaining)
+      group
+      (let [current (first remaining) updated-group (conj group current)]
+        (recur updated-group
+               (apply conj (disj remaining current) (remove updated-group (get conns current))))))))
+(clojure.string/replace '("0" "2") #"\s" "")
+(re-seq #"[0-9]+" "0 <-> 2, 3")
+(re-find #"[0-9]+" "0 <-> 2, 3")
+;; -- Part 2 --
+(-> "plumber.txt"
+ slurp
+;;  "0 <-> 2
+;; 1 <-> 1
+;; 2 <-> 0, 3, 4
+;; 3 <-> 2, 4
+;; 4 <-> 2, 3, 6
+;; 5 <-> 6
+;; 6 <-> 4, 5"
+ (clojure.string/split-lines)
+ (as-> pipes (sequence (comp
+                        (map (partial re-seq #"[0-9]+"))
+                        (map #(map read-string %)))
+                       pipes))
+ (as-> p (zipmap (map first p) (map rest p)))
+ (as-> p (for [k (keys p)]
+           (find-group k p)))
+ distinct
+ count
+ prn)
