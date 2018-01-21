@@ -960,3 +960,27 @@ c inc -20 if c == 10"
  distinct
  count
  prn)
+;; --- Day 13: Packet Scanners --- Part 1
+(-> "firewall.txt"
+    slurp
+ ;; "0: 3
+;; 1: 2
+;; 4: 4
+;; 6: 4"
+    clojure.string/split-lines
+    (as-> rules (sequence
+                 (comp
+                  (map (partial re-seq #"[0-9]+"))
+                  (map #(map read-string %)))
+                 rules)) 
+    (as-> rules (zipmap (map first rules) (map (comp first rest) rules))) 
+    (as-> r (for [k (keys r)] (compute-risk r k))) 
+    (as-> r (reduce + r)) 
+    prn) 
+(defn compute-risk [state depth]
+  (if (and
+       (< 1 depth)
+       (= 0 (mod depth (* (dec (get state depth)) 2))))
+    (* (get state depth) depth) 
+    0)) 
+;; -- Part 2 --
