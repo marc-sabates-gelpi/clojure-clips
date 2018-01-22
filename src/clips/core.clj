@@ -963,7 +963,7 @@ c inc -20 if c == 10"
 ;; --- Day 13: Packet Scanners --- Part 1
 (-> "firewall.txt"
     slurp
- ;; "0: 3
+;;  "0: 3
 ;; 1: 2
 ;; 4: 4
 ;; 6: 4"
@@ -974,13 +974,171 @@ c inc -20 if c == 10"
                   (map #(map read-string %)))
                  rules)) 
     (as-> rules (zipmap (map first rules) (map (comp first rest) rules))) 
-    (as-> r (for [k (keys r)] (compute-risk r k))) 
+    (as-> r (for [k (keys r)] (compute-risk r k 0))) 
     (as-> r (reduce + r)) 
     prn) 
-(defn compute-risk [state depth]
-  (if (and
-       (< 1 depth)
-       (= 0 (mod depth (* (dec (get state depth)) 2))))
+(defn compute-risk [state depth delay]
+  (if (= 0 (mod (+ depth delay) (* (dec (get state depth)) 2)))
     (* (get state depth) depth) 
     0)) 
 ;; -- Part 2 --
+(defn detect-catch [state depth delay]
+  (= 0 (mod (+ depth delay) (* (dec (get state depth)) 2)))) 
+(def ^:constant MIN_DELAY 0)
+(def ^:constant MAX_DELAY 1000000000000)
+(-> "firewall.txt"
+    slurp
+;;  "0: 3
+;; 1: 2
+;; 4: 4
+;; 6: 4"
+    clojure.string/split-lines
+    (as-> rules (sequence
+                 (comp
+                  (map (partial re-seq #"[0-9]+"))
+                  (map #(map read-string %)))
+                 rules)) 
+    (as-> rules (zipmap (map first rules) (map (comp first rest) rules))) 
+    (as-> rules (let [sorted-firewall-keys (sort (keys rules))]
+                  (loop [delay MIN_DELAY]
+                    (let [caught? (loop [k sorted-firewall-keys layer-caught? false]
+                                    (if (or (empty? k) layer-caught?)
+                                      layer-caught?
+                                      (recur (rest k) (detect-catch rules (first k) delay))))]
+                      (if (or (not caught?) (= delay MAX_DELAY))
+                        delay
+                        (recur (inc delay)))))))
+    prn)
+(partition 4 '(0 0 0 24 0 2 0 0 0 0 16 0 0 2 0 0 0 0 0 0 0 2 0 0 0 0 0 24 0 2 0 0 0 0 16 0 0 2 0 0 0 0 0 0))
+(apply and (= 1 1) (> 0 1))
+;; --- Day 14: Disk Defragmentation --- Part 1
+(-> "flqrgnkx-0"
+       sparse-hash
+       dense-hash
+       (as-> hexs (map hex->bin hexs))
+       (as-> bits (reduce str bits))
+       println)
+(defn pad-hex-to-len [hex n]
+  (->> hex
+       (str (reduce str (repeat n "0")))
+       (take-last n)
+       (apply str)))
+(defn hex->bin [hex]
+  (-> (str "0x" hex)
+      read-string
+      (Integer/toBinaryString)
+      (pad-hex-to-len 4)))
+(hex->bin "e")
+(def ^:constant GRID_SIZE 8)
+(clojure.pprint/pprint
+ (for [n (range GRID_SIZE)]
+   (-> "flqrgnkx-"
+       (str n)
+       sparse-hash
+       dense-hash
+       (as-> hexs (map hex->bin hexs))
+       (as-> bits (take (/ GRID_SIZE 4) bits))
+       (as-> bits (reduce str bits)))))
+(def ^:constant GRID_SIZE 128)
+(def ^:constant HASH_KEY "ffayrhll")
+(-> (for [n (range GRID_SIZE)]
+      (-> HASH_KEY
+          (str "-" n)
+          sparse-hash
+          dense-hash
+          (as-> hexs (map hex->bin hexs))
+          (as-> bits (take (/ GRID_SIZE 4) bits))
+          (as-> bits (reduce str bits))))
+    (as-> rows (transduce (comp (map #(clojure.string/replace % #"0" ""))
+                                (map count))
+                          +
+                          rows)))
+;; -- Part 2 --
+(defn find-used-adjacents [grid [x y]]
+  (loop [all-adjacents #{[(dec x) y] [(inc x) y] [x (dec y)] [x (inc y)]} used-adjacents #{}]
+    (if (empty? all-adjacents)
+      used-adjacents
+      (let [current-adjacent (first all-adjacents)]
+        (recur
+         (disj all-adjacents current-adjacent)
+         (if (= 1 (get-in grid current-adjacent 0))
+           (conj used-adjacents current-adjacent)
+           used-adjacents))))))
+(defn find-region-greedily [{:keys [grid last-region visited-squares] :as status} square]
+  (let [region-number (inc last-region)]
+      (loop [updated-grid grid sqs-visited visited-squares sqs-to-visit #{square}]
+        (if (empty? sqs-to-visit)
+          (-> status
+              (assoc :last-region region-number)
+              (assoc :grid updated-grid)
+              (update :visited-squares clojure.set/union sqs-visited))
+          (let [current-sq (first sqs-to-visit)]
+            (recur
+             (assoc-in updated-grid current-sq region-number)
+             (conj sqs-visited current-sq)
+             (clojure.set/union
+              (disj sqs-to-visit current-sq)
+              (clojure.set/difference (find-used-adjacents grid current-sq) sqs-visited))))))))
+(defn process-square [{:keys [grid visited-squares] :as status} square]
+  (if (or
+       (= 0 (get-in grid square 0))
+       (contains? visited-squares square))
+    (update status :visited-squares conj square)
+    (find-region-greedily status square)))
+(disj #{[1 2] [1 1] [2 1]} [1 1])
+(= 1 nil)
+(def ^:constant TEST-GRID [[1 0 1 1] [0 1 0 1] [0 1 0 1] [1 1 1 1]])
+(set-region-greedily {:grid TEST-GRID :last-region 1} [0 2])
+(for [x (range 128) y (range 128)]
+  [x y])
+(-> (for [n (range GRID_SIZE)]
+      (-> HASH_KEY
+          (str "-" n)
+          sparse-hash
+          dense-hash
+          (as-> hexs (map hex->bin hexs))
+          (as-> bits (reduce str bits))
+          (as-> bits (re-seq #"[0-1]" bits))
+          (as-> bits (map read-string bits))
+          vec))
+    vec
+    (as-> grid (let [squares (for [x (range GRID_SIZE) y (range GRID_SIZE)]
+                               [x y])]
+                 (loop [remaining-sqs squares status {:grid grid :last-region 0}]
+                   (if (empty? remaining-sqs)
+                     status
+                     (recur (rest remaining-sqs) (set-region-greedily status (first remaining-sqs)))))))
+    clojure.pprint/pprint)
+(def ^:constant TEST-SIZE 5)
+(clojure.pprint/pprint (let [squares (for [x (range TEST-SIZE) y (range TEST-SIZE)]
+                                       [x y])
+                             grid (vec (repeatedly TEST-SIZE (comp vec (fn [] (repeatedly TEST-SIZE #(rand-int 2))))))]
+                         (clojure.pprint/pprint grid)
+                         (loop [remaining-sqs squares status {:grid grid :last-region 0}]
+                           (if (empty? remaining-sqs)
+                             status
+                             (recur (rest remaining-sqs) (set-region-greedily status (first remaining-sqs)))))))
+(vec (repeatedly 20 (comp vec (fn [] (repeatedly 20 #(rand-int 2))))))
+;; 22/01/2018
+(def grid-from-hash (memoize
+                     (fn [hash-key]
+                       (-> (for [n (range 128)]
+                             (-> hash-key
+                                 (str "-" n)
+                                 sparse-hash
+                                 dense-hash
+                                 (as-> hexs (map hex->bin hexs))
+                                 (as-> bits (reduce str bits))
+                                 (as-> bits (re-seq #"[0-1]" bits))
+                                 (as-> bits (map read-string bits))
+                                 vec))
+                           vec))))
+(grid-from-hash "ffayrhll")
+(defn find-regions-from-hash [hash-key]
+  (loop [remaining-sqs (for [x (range 128) y (range 128)] [x y])
+         status {:grid (grid-from-hash hash-key) :last-region 0 :visited-squares #{}}]
+    (if (empty? remaining-sqs)
+      status
+      (recur (rest remaining-sqs) (process-square status (first remaining-sqs))))))
+(prn (assoc (find-regions-from-hash "ffayrhll") :visited-squares #{}))
+;;--- Day 15: Dueling Generators --- Part 1
