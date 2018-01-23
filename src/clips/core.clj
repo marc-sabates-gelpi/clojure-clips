@@ -1142,3 +1142,66 @@ c inc -20 if c == 10"
       (recur (rest remaining-sqs) (process-square status (first remaining-sqs))))))
 (prn (assoc (find-regions-from-hash "ffayrhll") :visited-squares #{}))
 ;;--- Day 15: Dueling Generators --- Part 1
+;;Generator A starts with 703
+;;Generator B starts with 516
+;;Generator A's factor 16807
+;;Generator B's factor 48271
+(bit-and 8 9)
+(bit-and 8 2r0011)
+;;23/01/2018
+(transduce (comp
+            (map inc)
+            (map dec)
+            (map #(if (< 0.5 (rand)) (reduced %) %)))
+           (completing -)
+           0
+           (range 10))
+(defn make-generator [factor]
+  (fn generator [seed]
+    (-> seed
+        (* factor)
+        (rem 2147483647))))
+(def lazy-gen-a (iterate (make-generator 16807) 703))
+(def lazy-gen-b (iterate (make-generator 48271) 516))
+(prn (take 2 lazy-gen-a))
+(defn keep-lower-16-bits [n]
+  (bit-and 0xffff n))
+(= 26195 (keep-lower-16-bits 353875))
+(defn judge [c times coll-a coll-b]
+  (if (= times 0)
+    c
+    (recur (if (=
+                (keep-lower-16-bits (first coll-a))
+                (keep-lower-16-bits (first coll-b)))
+             (inc c)
+             c)
+           (dec times)
+           (next coll-a)
+           (next coll-b))))
+(judge (iterate (make-generator 16807) 65) (iterate (make-generator 48271) 8921))
+(judge (iterate (make-generator 16807) 703) (iterate (make-generator 48271) 516))
+(judge (iterate * 3) (iterate * 3))
+(def j (iterate * 3))
+(rest j)
+(next j)
+(ns-unmap *ns* 'j)
+(ns-unmap *ns* 'lazy-gen-a)
+(take 40000000 j)
+(defn random-ints
+  [limit]
+  (lazy-seq
+   (println "realizing random number")
+   (cons (rand-int limit)
+         (random-ints limit))))
+(def x (next (random-ints 50)))
+(def x (rest (random-ints 50)))
+(defn make-lazy-generator [factor]
+  (fn lazy-generator [seed]
+    (let [h (-> seed
+                (* factor)
+                (rem 2147483647))]
+      (lazy-seq
+       (cons h
+             (lazy-seq (lazy-generator h)))))))
+(judge 0 40000000 ((make-lazy-generator 16807) 65) ((make-lazy-generator 48271) 8921))
+(judge 0 40000000 ((make-lazy-generator 16807) 703) ((make-lazy-generator 48271) 516))
