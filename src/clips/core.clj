@@ -1205,3 +1205,65 @@ c inc -20 if c == 10"
              (lazy-seq (lazy-generator h)))))))
 (judge 0 40000000 ((make-lazy-generator 16807) 65) ((make-lazy-generator 48271) 8921))
 (judge 0 40000000 ((make-lazy-generator 16807) 703) ((make-lazy-generator 48271) 516))
+;;24/01/2018
+;; Part 2
+(judge 0
+       5000000
+       (eduction
+        (comp
+         (filter #(= 0 (mod % 4))))
+        ((make-lazy-generator 16807) 65))
+       (eduction
+        (comp
+         (filter #(= 0 (mod % 8))))
+        ((make-lazy-generator 48271) 8921)))
+(def e (eduction (comp (map inc)) (random-ints 50)))
+(first e)
+(first (next e))
+(def ee (sequence (comp (map inc)) (random-ints 50)))
+(fnext (next ee))
+(judge 0
+       5000000
+       (eduction
+        (comp
+         (filter #(= 0 (mod % 4))))
+        ((make-lazy-generator 16807) 703))
+       (eduction
+        (comp
+         (filter #(= 0 (mod % 8))))
+        ((make-lazy-generator 48271) 516)))
+;;--- Day 16: Permutation Promenade --- Part 1
+(def ^:constant NUM_DANCERS 16)
+(defmulti dance-it (fn [dancers move] (:op move)))
+(defmethod dance-it "s" [dancers move] (let [num (- NUM_DANCERS (read-string (:a move)))]
+                                         (vec (flatten (list (drop num dancers) (take num dancers))))))
+(defmethod dance-it "x" [dancers move] (let [a-pos (read-string (:a move))
+                                             b-pos (read-string (:b move))
+                                             a (get dancers a-pos)
+                                             b (get dancers b-pos)]
+                                         (-> dancers
+                                             (assoc b-pos a)
+                                             (assoc a-pos b))))
+(defmethod dance-it "p" [dancers move] (let [a (read-string (str "\\" (:a move)))
+                                             b (read-string (str "\\" (:b move)))
+                                             a-pos (.indexOf dancers a)
+                                             b-pos (.indexOf dancers b)]
+                                         (-> dancers
+                                             (assoc b-pos a)
+                                             (assoc a-pos b))))
+(defmethod dance-it :default [dancers move] dancers)
+(defn parse-op [op]
+  (let [[_ op a b] (first (re-seq #"([sxp]{1})([0-9a-z]+)(?:/([0-9a-z]+))?" op))]
+    {:op op :a a :b b}))
+(-> "dance"
+ slurp
+ ;;"s1,x3/4,pe/b"
+    (clojure.string/split #",")
+    (as-> moves (transduce (comp (map parse-op)) (completing dance-it) (vec (map char (range 97 (+ 97 NUM_DANCERS)))) moves))
+    (as-> dancers (reduce str dancers))
+    println)
+(filter nil? {:a 1 :b nil})
+(int \a)
+(str 97)
+(flatten (vector '(1 2 3) '(4 5 6)))
+(char "a")
