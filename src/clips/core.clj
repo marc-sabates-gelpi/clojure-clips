@@ -1234,32 +1234,42 @@ c inc -20 if c == 10"
         ((make-lazy-generator 48271) 516)))
 ;;--- Day 16: Permutation Promenade --- Part 1
 (def ^:constant NUM_DANCERS 16)
-(defmulti dance-it (fn [dancers move] (:op move)))
-(defmethod dance-it "s" [dancers move] (let [num (- NUM_DANCERS (read-string (:a move)))]
-                                         (vec (flatten (list (drop num dancers) (take num dancers))))))
-(defmethod dance-it "x" [dancers move] (let [a-pos (read-string (:a move))
-                                             b-pos (read-string (:b move))
-                                             a (get dancers a-pos)
-                                             b (get dancers b-pos)]
-                                         (-> dancers
-                                             (assoc b-pos a)
-                                             (assoc a-pos b))))
-(defmethod dance-it "p" [dancers move] (let [a (read-string (str "\\" (:a move)))
-                                             b (read-string (str "\\" (:b move)))
-                                             a-pos (.indexOf dancers a)
-                                             b-pos (.indexOf dancers b)]
-                                         (-> dancers
-                                             (assoc b-pos a)
-                                             (assoc a-pos b))))
+(defmulti dance-it (fn [dancers move] ((memoize :op) move)))
+(defmethod dance-it :s [dancers move] (let [num (:num move)]
+                                        (into (subvec dancers num) (subvec dancers 0 num))))
+(defmethod dance-it :x [dancers move] (let [a-pos (:a move)
+                                            b-pos (:b move)
+                                            a (get dancers a-pos)
+                                            b (get dancers b-pos)]
+                                        (-> dancers
+                                            (assoc b-pos a)
+                                            (assoc a-pos b))))
+(defmethod dance-it :p [dancers move] (let [a (:a move)
+                                            b (:b move)
+                                            a-pos (.indexOf dancers a)
+                                            b-pos (.indexOf dancers b)]
+                                        (-> dancers
+                                            (assoc b-pos a)
+                                            (assoc a-pos b))))
 (defmethod dance-it :default [dancers move] dancers)
-(defn parse-op [op]
-  (let [[_ op a b] (first (re-seq #"([sxp]{1})([0-9a-z]+)(?:/([0-9a-z]+))?" op))]
-    {:op op :a a :b b}))
+(defn parse-move [m]
+  (first (re-seq #"[sxp]{1}([0-9a-z]+)(?:/([0-9a-z]+))?" m)))
+(defn find-op [m] (re-find #"[sxp]{1}" m))
+(defmulti convert-move find-op)
+(defmethod convert-move "s" [m]
+  (let [[_ a _] (parse-move m)]
+    {:op :s :num (- NUM_DANCERS (read-string a))}))
+(defmethod convert-move "x" [m]
+  (let [[_ a b] (parse-move m)]
+    {:op :x :a (read-string a) :b (read-string b)}))
+(defmethod convert-move "p" [m]
+  (let [[_ a b] (parse-move m)]
+    {:op :p :a (read-string (str "\\" a)) :b (read-string (str "\\" b))}))
 (-> "dance"
  slurp
  ;;"s1,x3/4,pe/b"
     (clojure.string/split #",")
-    (as-> moves (transduce (comp (map parse-op)) (completing dance-it) (vec (map char (range 97 (+ 97 NUM_DANCERS)))) moves))
+    (as-> moves (transduce (comp (map convert-move)) (completing dance-it) (vec (map char (range 97 (+ 97 NUM_DANCERS)))) moves))
     (as-> dancers (reduce str dancers))
     println)
 (filter nil? {:a 1 :b nil})
@@ -1267,3 +1277,59 @@ c inc -20 if c == 10"
 (str 97)
 (flatten (vector '(1 2 3) '(4 5 6)))
 (char "a")
+;;25/01/2018
+;; -- Part 2
+(def ^:constant DANCE_TIMES 10)
+(-> "dance"
+ slurp
+ ;;"s1,x3/4,pe/b"
+    (clojure.string/split #",")
+    (as-> moves (map convert-move moves) moves)
+    (as-> moves (loop [dancers (vec (map char (range 97 (+ 97 NUM_DANCERS)))) times DANCE_TIMES]
+                  (if (= 0 times)
+                    dancers
+                    (recur (time (reduce dance-it dancers moves)) (dec times)))))
+    (as-> dancers (reduce str dancers))
+    println)
+(re-find #"[sxp]{1}" "pe/b")
+(subvec [1 2 3 4 5] 0 2)
+(subvec [1 2 3 4 5] 2)
+(into (subvec [1 2 3 4 5] 2) (subvec [1 2 3 4 5] 0 2))
+;;Transient version
+(defmulti dance-it-trans (fn [dancers move] ((memoize :op) move)))
+(defmethod dance-it-trans :s [dancers move] (let [num (:num move)]
+                                        (into (subvec dancers num) (subvec dancers 0 num))))
+(defmethod dance-it-trans :x [dancers move] (let [a-pos (:a move)
+                                                  b-pos (:b move)
+                                                  a (get dancers a-pos)
+                                                  b (get dancers b-pos)]
+                                              (assoc! (assoc! dancers b-pos a) a-pos b)))
+(defmethod dance-it-trans :p [dancers move] (let [a (:a move)
+                                                  b (:b move)
+                                                  a-pos (.indexOf dancers a)
+                                                  b-pos (.indexOf dancers b)]
+                                              (assoc! (assoc! dancers b-pos a) a-pos b)))
+(defmethod dance-it-trans :default [dancers move] dancers)
+(-> "dance"
+ slurp
+ ;;"s1,x3/4,pe/b"
+    (clojure.string/split #",")
+    (as-> moves (map convert-move moves) moves)
+    (as-> moves (loop [dancers (transient (vec (map char (range 97 (+ 97 NUM_DANCERS))))) times DANCE_TIMES]
+                  (if (= 0 times)
+                    (persistent! dancers)
+                    (recur (time (reduce dance-it-trans dancers moves)) (dec times)))))
+    (as-> dancers (reduce str dancers))
+    println)
+(nth (conj! (transient []) (subvec [1 2 3 4 5] 2) ;; (subvec [1 2 3 4 5] 0 2)
+            ) 1)
+(nth (conj! (transient (subvec [1 2 3 4 5] 2)) 4 ;;(subvec [1 2 3 4 5] 0 2)
+            ) 1)
+(loop [v (transient [1 2 3 4 5]) nums (subvec (transient [1 2 3 4 5]) 0 2)]
+  (if (empty? nums)
+    (persistent! v)
+    (recur (conj! v (first nums)) (next nums))))
+(loop [v (transient [1 2 3 4 5]) t 2]
+  (if (= 0 t)
+    (persistent! v)
+    (recur (pop! v) (dec t))))
