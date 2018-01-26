@@ -1233,7 +1233,7 @@ c inc -20 if c == 10"
          (filter #(= 0 (mod % 8))))
         ((make-lazy-generator 48271) 516)))
 ;;--- Day 16: Permutation Promenade --- Part 1
-(def ^:constant NUM_DANCERS 16)
+(def ^:constant NUM_DANCERS 5)
 (defmulti dance-it (fn [dancers move] ((memoize :op) move)))
 (defmethod dance-it :s [dancers move] (let [num (:num move)]
                                         (into (subvec dancers num) (subvec dancers 0 num))))
@@ -1279,12 +1279,12 @@ c inc -20 if c == 10"
 (char "a")
 ;;25/01/2018
 ;; -- Part 2
-(def ^:constant DANCE_TIMES 10)
-(-> "dance"
- slurp
- ;;"s1,x3/4,pe/b"
+(def ^:constant DANCE_TIMES 2)
+(-> ;;"dance"
+ ;;slurp
+ "s1,x3/4,pe/b"
     (clojure.string/split #",")
-    (as-> moves (map convert-move moves) moves)
+    (as-> moves (map convert-move moves))
     (as-> moves (loop [dancers (vec (map char (range 97 (+ 97 NUM_DANCERS)))) times DANCE_TIMES]
                   (if (= 0 times)
                     dancers
@@ -1297,8 +1297,17 @@ c inc -20 if c == 10"
 (into (subvec [1 2 3 4 5] 2) (subvec [1 2 3 4 5] 0 2))
 ;;Transient version
 (defmulti dance-it-trans (fn [dancers move] ((memoize :op) move)))
-(defmethod dance-it-trans :s [dancers move] (let [num (:num move)]
-                                        (into (subvec dancers num) (subvec dancers 0 num))))
+(defmethod dance-it-trans :s [dancers move] (let [post (take-trans (:take move) dancers)
+                                                  pre (drop-trans (:drop move) dancers)]
+                                              (as-> (transient []) tt
+                                                (loop [lt tt lpre pre]
+                                                  (if (empty? lpre)
+                                                    tt
+                                                    (recur (conj! tt (first lpre)) (next lpre))))
+                                                (loop [lt tt lpost post]
+                                                  (if (empty? lpost)
+                                                    tt
+                                                    (recur (conj! tt (first lpost)) (next lpost)))))))
 (defmethod dance-it-trans :x [dancers move] (let [a-pos (:a move)
                                                   b-pos (:b move)
                                                   a (get dancers a-pos)
@@ -1306,15 +1315,15 @@ c inc -20 if c == 10"
                                               (assoc! (assoc! dancers b-pos a) a-pos b)))
 (defmethod dance-it-trans :p [dancers move] (let [a (:a move)
                                                   b (:b move)
-                                                  a-pos (.indexOf dancers a)
-                                                  b-pos (.indexOf dancers b)]
+                                                  a-pos (index-of dancers a)
+                                                  b-pos (index-of dancers b)]
                                               (assoc! (assoc! dancers b-pos a) a-pos b)))
 (defmethod dance-it-trans :default [dancers move] dancers)
 (-> "dance"
  slurp
  ;;"s1,x3/4,pe/b"
     (clojure.string/split #",")
-    (as-> moves (map convert-move moves) moves)
+    (as-> moves (map convert-move-trans moves))
     (as-> moves (loop [dancers (transient (vec (map char (range 97 (+ 97 NUM_DANCERS))))) times DANCE_TIMES]
                   (if (= 0 times)
                     (persistent! dancers)
@@ -1333,3 +1342,77 @@ c inc -20 if c == 10"
   (if (= 0 t)
     (persistent! v)
     (recur (pop! v) (dec t))))
+;;26/01/2018
+(prn (persistent! (let [t (transient [\a \b \c \d \e]) len 2 post (take-trans (- (count t) len) t) pre (drop-trans (inc len) t)]
+                    (as-> (transient []) tt
+                      (loop [lt tt lpre pre]
+                        (if (empty? lpre)
+                          tt
+                          (recur (conj! tt (first lpre)) (next lpre))))
+                      (loop [lt tt lpost post]
+                        (if (empty? lpost)
+                          tt
+                          (recur (conj! tt (first lpost)) (next lpost))))))))
+(defmulti convert-move-trans find-op)
+(defmethod convert-move-trans "s" [m]
+  (let [[_ a _] (parse-move m)]
+    {:op :s :take (- NUM_DANCERS (read-string a)) :drop (- NUM_DANCERS (read-string a))}))
+(defmethod convert-move-trans "x" [m]
+  (let [[_ a b] (parse-move m)]
+    {:op :x :a (read-string a) :b (read-string b)}))
+(defmethod convert-move-trans "p" [m]
+  (let [[_ a b] (parse-move m)]
+    {:op :p :a (read-string (str "\\" a)) :b (read-string (str "\\" b))}))
+(defn index-of [coll el]
+  (let [max (count coll)]
+    (loop [index 0]
+      (if (or (= el (get coll index)) (= index max))
+        index
+        (recur (inc index))))))
+(defn take-trans [n coll]
+  (loop [i 0 v []]
+    (if (>= i n)
+      v
+      (recur (inc i) (conj v (get coll i))))))
+(defn drop-trans [n coll]
+  (let [max (count coll)]
+    (loop [i n v []]
+      (if (>= i max)
+        v
+        (recur (inc i) (conj v (get coll i)))))))
+(let [t (transient [\a \b \c \d \e])]
+  (prn (take-trans 2 t))
+  (prn (drop-trans 2 t)))
+;;;;;;;;;;;;;; consts
+(def ^:constant NUM_DANCERS 16)
+(def ^:constant DANCE_TIMES 40)
+;;;;;;;;;;;;;; transient run
+(time (-> "dance"
+          slurp
+          ;;"s1,x3/4,pe/b"
+          (clojure.string/split #",")
+          (as-> moves (map convert-move-trans moves))
+          (as-> moves (loop [dancers (transient (vec (map char (range 97 (+ 97 NUM_DANCERS))))) times DANCE_TIMES]
+                        (if (= 0 times) 
+                          (persistent! dancers)
+                          (recur (reduce dance-it-trans dancers moves) (dec times)))))
+          (as-> dancers (reduce str dancers))
+          println))
+;;;;;;;;;;;;;; persistent run
+(time (-> "dance"
+          slurp
+          ;;"s1,x3/4,pe/b"
+          (clojure.string/split #",")
+          (as-> moves (map convert-move moves))
+          (as-> moves (let [initial-state (vec (map char (range 97 (+ 97 NUM_DANCERS))))]
+                        (loop [dancers initial-state times DANCE_TIMES]
+                          (if (= 0 times)
+                            dancers
+                            (do
+                              (if (= dancers initial-state) (println (str "Cycle at " times)))
+                              (recur (reduce dance-it dancers moves) (dec times)))))))
+          (as-> dancers (reduce str dancers))
+          println))
+;;;;;;;;; Every 60 dances there is a cycle
+(rem 1000000000 60)
+;;;;;;;;; 40 is the number of dances to get to 1 thousand millions (Thanks to Dave!!)
