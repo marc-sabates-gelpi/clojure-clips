@@ -1416,3 +1416,229 @@ c inc -20 if c == 10"
 ;;;;;;;;; Every 60 dances there is a cycle
 (rem 1000000000 60)
 ;;;;;;;;; 40 is the number of dances to get to 1 thousand millions (Thanks to Dave!!)
+;; 27/01/2018
+;; --- Day 17: Spinlock ---
+(time (-> (take 3 [1 2 3 5 6 7])
+          (conj 4)
+          (concat (drop 3 [1 2 3 5 6 7]))))
+(time (-> 4
+          (list* (drop 3 '(1 2 3 5 6 7)))
+          (as-> l (concat (take 3 '(1 2 3 5 6 7)) l))))
+(into '(1 2 3) '(4))
+(replace {[:a 7] 1 [:b 9] 2} {:a 7 :b 9})
+(replace {1 10 2 20} '(1 1 2 1 2 2 1))
+(replace {1 10 2 20 :b 999} [1 :a 2 1 :b 2 1])
+(cons :a '(1 2 3))
+(cons :a [1 2 3])
+(conj '(1 2 3) :a)
+(conj [1 2 3] :a)
+(concat '(1 2 3) '(4 5 6))
+(concat [1 2 3] [4 5 6])
+(prn (time (let [jump 394]
+             (loop [prev-pos 0 buff '(0) times (dec 2017) next-num 1]
+               (let [current-pos (inc (mod (+ prev-pos jump) (count buff)))
+                     changed-buff (->> (conj (drop current-pos buff) next-num)
+                                       (concat (take current-pos buff)))]
+                 (if (= 0 times)
+                   (nth changed-buff (mod (inc current-pos) (count changed-buff)))
+                   (recur current-pos
+                          changed-buff
+                          (dec times)
+                          (inc next-num))))))))
+;; -- Part 2
+(defn find-pos-nth-insert [jump nth-time]
+  (loop [size 1 current-pos 0 times nth-time]
+    (if (= 0 times)
+      (mod current-pos size)
+      (recur (inc size) (inc (mod (+ current-pos jump) size)) (dec times)))))
+(time (find-pos-nth-insert 3 50000000))
+(defn list-insert-pos [jump until-nth-time]
+  (loop [size 1 current-pos 0 times (inc until-nth-time) res []]
+    (if (= 0 times)
+      res
+      (recur (inc size) (inc (mod (+ current-pos jump) size)) (dec times) (conj res (mod current-pos size))))))
+(prn (list-insert-pos 3 9))
+(defn make-insert-pos [jump]
+  (fn insert-pos [size pos]
+    (lazy-seq
+     (cons (mod pos size)
+           (lazy-seq (insert-pos (inc size) (inc (mod (+ pos jump) size))))))))
+(def l ((make-insert-pos 3) 1 0))
+(take 10 l)
+(transduce
+ (comp
+  (take 10))
+(completing #())
+ ((make-insert-pos 3) 1 0))
+;; 28/01/2018
+(defn make-insert-pos [jump]
+  (fn insert-pos [size pos]
+    (lazy-seq
+     (cons {:pos (mod pos size) :num (dec size)}
+           (lazy-seq (insert-pos (inc size) (inc (mod (+ pos jump) size))))))))
+(take 10 ((make-insert-pos 3) 1 0))
+(defn get-insert-pos-coll [jump]
+  ((make-insert-pos jump) 1 0))
+(defn find-elem-in-pos-1-after-n-times-with-jumps-of [n-times jump]
+  (loop [times (inc n-times) coll (get-insert-pos-coll jump) last-pos {:pos -1 :num -1}]
+    (if (= 0 times)
+      (:num last-pos)
+      (recur
+       (dec times)
+       (next coll)
+       (let [current (first coll)]
+         (if (= 1 (:pos current))
+           current
+           last-pos))))))
+(find-elem-in-pos-after-n-times-with-jumps-of 1 500000000 394)
+;; Too high 154078359
+(ns-unmap *ns* 'find-elem-in-pos-after-n-times)
+(ns-unmap *ns* 'find-elem-in-pos-after-n-times-with-jumps-of)
+(find-elem-in-pos-1-after-n-times-with-jumps-of 50000000 394)
+(prn (take 10 (get-insert-pos-coll 394)))
+;; --- Day 18: Duet --- Part 1
+;; {:pc 0 :last-snd -1 :registers {:a 0} :instructions [{:instr :p1 :p2}]}
+(re-seq #"([a-z]{3})\s([0-9]+|[a-z]+)\s([0-9]+|[a-z]+)" "add a 2")
+(defn str->num-or-register [str]
+  (let [parse (read-string str)]
+    (if (number? parse)
+      parse
+      (keyword parse))))
+(defn get-val [regs val-or-reg]
+  (if (keyword? val-or-reg)
+    (get regs val-or-reg 0)
+    val-or-reg))
+(defmulti exec-next (fn [{:keys [pc instructions]}] (:instr (get instructions pc))))
+(defmethod exec-next :set [{:keys [pc instructions registers] :as initial-status}]
+  (as-> initial-status status
+    (assoc-in status [:registers (get-in instructions [pc :p1])] (get-val registers (get-in instructions [pc :p2])))
+    (update status :pc inc)))
+(defmethod exec-next :mul [{:keys [instructions pc registers] :as initial-status}]
+  (as-> initial-status status
+    (update-in status [:registers (get-in instructions [pc :p1])] (fnil * 0) (get-val registers (get-in instructions [pc :p2])))
+    (update status :pc inc)))
+(defmethod exec-next :jgz [{:keys [instructions pc registers] :as initial-status}]
+  (as-> initial-status status
+    (if (< 0 (get-val registers (get-in instructions [pc :p1])))
+      (update status :pc + (get-val registers (get-in instructions [pc :p2])))
+      (update status :pc inc))))
+(defmethod exec-next :add [{:keys [instructions pc registers] :as initial-status}]
+  (as-> initial-status status
+    (update-in status [:registers (get-in instructions [pc :p1])] (fnil + 0) (get-val registers (get-in instructions [pc :p2])))
+    (update status :pc inc)))
+(defmethod exec-next :mod [{:keys [instructions pc registers] :as initial-status}]
+  (as-> initial-status status
+    (update-in status [:registers (get-in instructions [pc :p1])] (fnil mod 0) (get-val registers (get-in instructions [pc :p2])))
+    (update status :pc inc)))
+(defmethod exec-next :snd [{:keys [instructions pc registers] :as initial-status}]
+  (as-> initial-status status
+    (assoc status :last-snd (get-val registers (get-in instructions [pc :p1])))
+    (update status :pc inc)))
+(defmethod exec-next :rcv [{:keys [instructions pc registers] :as initial-status}]
+  (as-> initial-status status
+    (if (not= 0 (get-val registers (get-in instructions [pc :p1])))
+      (assoc status :stop true)
+      status)
+    (update status :pc inc)))
+(defmethod exec-next :default [status] (assoc status :stop true))
+(defn get-first-rcv-val [initial-status]
+  (loop [status initial-status]
+    (if (:stop status)
+      (:last-snd status)
+      (recur (exec-next status)))))
+(-> "duet"
+    slurp
+    (clojure.string/split-lines)
+    (as-> instrs
+        (sequence (comp
+                   (map #(re-seq #"([a-z]{3})\s(-?[0-9]+|[a-z]+)(?:\s(-?[0-9]+|[a-z]+))?" %))
+                   (map first)
+                   (map (fn [[_ instr p1 p2]]
+                          (let [parsed-instr (hash-map :instr (keyword instr) :p1 (str->num-or-register p1))]
+                            (if (nil? p2)
+                              parsed-instr
+                              (assoc parsed-instr :p2 (str->num-or-register p2)))))))
+                  instrs)
+      (vec instrs)
+      (hash-map :pc 0 :last-snd -1 :registers {} :instructions instrs))
+    get-first-rcv-val)
+;; -- Part 2
+(defmulti exec-next-parallel (fn [{:keys [pc instructions]}] (:instr (get instructions pc))))
+(defmethod exec-next-parallel :set [{:keys [pc instructions registers] :as initial-status}]
+  (as-> initial-status status
+    (assoc-in status [:registers (get-in instructions [pc :p1])] (get-val registers (get-in instructions [pc :p2])))
+    (update status :pc inc)))
+(defmethod exec-next-parallel :mul [{:keys [instructions pc registers] :as initial-status}]
+  (as-> initial-status status
+    (update-in status [:registers (get-in instructions [pc :p1])] (fnil * 0) (get-val registers (get-in instructions [pc :p2])))
+    (update status :pc inc)))
+(defmethod exec-next-parallel :jgz [{:keys [instructions pc registers] :as initial-status}]
+  (as-> initial-status status
+    (if (< 0 (get-val registers (get-in instructions [pc :p1])))
+      (update status :pc + (get-val registers (get-in instructions [pc :p2])))
+      (update status :pc inc))))
+(defmethod exec-next-parallel :add [{:keys [instructions pc registers] :as initial-status}]
+  (as-> initial-status status
+    (update-in status [:registers (get-in instructions [pc :p1])] (fnil + 0) (get-val registers (get-in instructions [pc :p2])))
+    (update status :pc inc)))
+(defmethod exec-next-parallel :mod [{:keys [instructions pc registers] :as initial-status}]
+  (as-> initial-status status
+    (update-in status [:registers (get-in instructions [pc :p1])] (fnil mod 0) (get-val registers (get-in instructions [pc :p2])))
+    (update status :pc inc)))
+(defmethod exec-next-parallel :snd [{:keys [instructions pc registers snd-ch] :as initial-status}]
+  (async/go
+    (as-> initial-status status
+      (update status :pc inc)
+      (update status :snd-times inc)
+      (async/>!! (get status :snd-ch) (get-val registers (get-in instructions [pc :p1]))))))
+(defmethod exec-next-parallel :rcv [{:keys [instructions pc] :as initial-status}]
+  (async/go
+    (as-> initial-status status
+      (update status :pc inc)
+      (if ((get @(:shared-waiting-status status) (keyword (other-pid status)) false))
+        (do
+          (async/>! (get status :snd-ch) :dead-lock)
+          (assoc status :dead-lock? true))
+        (let [_ (send (:shared-waiting-status status) assoc (keyword (:pid status)) true)
+              rcv-val (async/<!! (:rcv-ch status))]
+          (if (= :dead-lock rcv-val)
+            (assoc status :dead-lock? true)
+            (do
+              (send (:shared-waiting-status status) assoc (keyword (:pid status)) false)
+              (assoc-in status [:registers (get-in instructions [pc :p1])] rcv-val))))))))
+(defn other-pid [status]
+  (if (= 0 (:pid status))
+    1
+    0))
+(defn make-runner [initial-status snd-ch rcv-ch pid]
+  (let [pc-max (count (:instructions initial-status))]
+    (loop [status (-> initial-status
+                      (assoc :pid pid)
+                      (assoc :snd-ch snd-ch)
+                      (assoc :rcv-ch rcv-ch)
+                      (assoc-in [:registers :p] pid))]
+      (if (or (:dead-lock? status) (= pc-max (:pc status)))
+        {:pid pid :snd-times (:snd-times status)}
+        (recur (exec-next-parallel status)))))))
+(-> "duet"
+    slurp
+    (clojure.string/split-lines)
+    (as-> instrs
+        (sequence (comp
+                   (map #(re-seq #"([a-z]{3})\s(-?[0-9]+|[a-z]+)(?:\s(-?[0-9]+|[a-z]+))?" %))
+                   (map first)
+                   (map (fn [[_ instr p1 p2]]
+                          (let [parsed-instr (hash-map :instr (keyword instr) :p1 (str->num-or-register p1))]
+                            (if (nil? p2)
+                              parsed-instr
+                              (assoc parsed-instr :p2 (str->num-or-register p2)))))))
+                  instrs)
+      (vec instrs)
+      (hash-map :pc 0 :registers {} :instructions instrs :shared-waiting-status (agent {:0 false :1 false})))
+    (as-> status
+        (let [ch0 (async/chan 10)
+              ch1 (async/chan 10)
+              run0 (future (make-runner status ch1 ch0 0))
+              run1 (future (make-runner status ch0 ch1 1))]
+          (prn @run0)
+          (prn @run1))
