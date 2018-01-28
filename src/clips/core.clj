@@ -1641,4 +1641,4 @@ c inc -20 if c == 10"
               run0 (future (make-runner status ch1 ch0 0))
               run1 (future (make-runner status ch0 ch1 1))]
           (prn @run0)
-          (prn @run1))
+          (prn @run1))))
