@@ -1564,62 +1564,70 @@ c inc -20 if c == 10"
     get-first-rcv-val)
 ;; -- Part 2
 (defmulti exec-next-parallel (fn [{:keys [pc instructions]}] (:instr (get instructions pc))))
-(defmethod exec-next-parallel :set [{:keys [pc instructions registers] :as initial-status}]
-  (as-> initial-status status
-    (assoc-in status [:registers (get-in instructions [pc :p1])] (get-val registers (get-in instructions [pc :p2])))
-    (update status :pc inc)))
-(defmethod exec-next-parallel :mul [{:keys [instructions pc registers] :as initial-status}]
-  (as-> initial-status status
-    (update-in status [:registers (get-in instructions [pc :p1])] (fnil * 0) (get-val registers (get-in instructions [pc :p2])))
-    (update status :pc inc)))
-(defmethod exec-next-parallel :jgz [{:keys [instructions pc registers] :as initial-status}]
-  (as-> initial-status status
+(defmethod exec-next-parallel :set [{:keys [pc instructions registers] :as initial-state}]
+  (as-> initial-state state
+    (assoc-in state [:registers (get-in instructions [pc :p1])] (get-val registers (get-in instructions [pc :p2])))
+    (update state :pc inc)))
+(defmethod exec-next-parallel :mul [{:keys [instructions pc registers] :as initial-state}]
+  (as-> initial-state state
+    (update-in state [:registers (get-in instructions [pc :p1])] (fnil * 0) (get-val registers (get-in instructions [pc :p2])))
+    (update state :pc inc)))
+(defmethod exec-next-parallel :jgz [{:keys [instructions pc registers] :as initial-state}]
+  (as-> initial-state state
     (if (< 0 (get-val registers (get-in instructions [pc :p1])))
-      (update status :pc + (get-val registers (get-in instructions [pc :p2])))
-      (update status :pc inc))))
-(defmethod exec-next-parallel :add [{:keys [instructions pc registers] :as initial-status}]
-  (as-> initial-status status
-    (update-in status [:registers (get-in instructions [pc :p1])] (fnil + 0) (get-val registers (get-in instructions [pc :p2])))
-    (update status :pc inc)))
-(defmethod exec-next-parallel :mod [{:keys [instructions pc registers] :as initial-status}]
-  (as-> initial-status status
-    (update-in status [:registers (get-in instructions [pc :p1])] (fnil mod 0) (get-val registers (get-in instructions [pc :p2])))
-    (update status :pc inc)))
-(defmethod exec-next-parallel :snd [{:keys [instructions pc registers snd-ch] :as initial-status}]
-  (async/go
-    (as-> initial-status status
-      (update status :pc inc)
-      (update status :snd-times inc)
-      (async/>!! (get status :snd-ch) (get-val registers (get-in instructions [pc :p1]))))))
-(defmethod exec-next-parallel :rcv [{:keys [instructions pc] :as initial-status}]
-  (async/go
-    (as-> initial-status status
-      (update status :pc inc)
-      (if ((get @(:shared-waiting-status status) (keyword (other-pid status)) false))
-        (do
-          (async/>! (get status :snd-ch) :dead-lock)
-          (assoc status :dead-lock? true))
-        (let [_ (send (:shared-waiting-status status) assoc (keyword (:pid status)) true)
-              rcv-val (async/<!! (:rcv-ch status))]
-          (if (= :dead-lock rcv-val)
-            (assoc status :dead-lock? true)
-            (do
-              (send (:shared-waiting-status status) assoc (keyword (:pid status)) false)
-              (assoc-in status [:registers (get-in instructions [pc :p1])] rcv-val))))))))
-(defn other-pid [status]
-  (if (= 0 (:pid status))
-    1
-    0))
-(defn make-runner [initial-status snd-ch rcv-ch pid]
-  (let [pc-max (count (:instructions initial-status))]
-    (loop [status (-> initial-status
+      (update state :pc + (get-val registers (get-in instructions [pc :p2])))
+      (update state :pc inc))))
+(defmethod exec-next-parallel :add [{:keys [instructions pc registers] :as initial-state}]
+  (as-> initial-state state
+    (update-in state [:registers (get-in instructions [pc :p1])] (fnil + 0) (get-val registers (get-in instructions [pc :p2])))
+    (update state :pc inc)))
+(defmethod exec-next-parallel :mod [{:keys [instructions pc registers] :as initial-state}]
+  (as-> initial-state state
+    (update-in state [:registers (get-in instructions [pc :p1])] (fnil mod 0) (get-val registers (get-in instructions [pc :p2])))
+    (update state :pc inc)))
+(defmethod exec-next-parallel :snd [{:keys [instructions pc registers snd-ch pid] :as initial-state}]
+  (do
+    (println (str "Runner " pid ": Sending!"))
+    (as-> initial-state state
+      (async/>!! snd-ch (get-val registers (get-in instructions [pc :p1])))
+      (update state :pc inc)
+      (update state :snd-times (fnil inc 0)))))
+(defmethod exec-next-parallel :rcv [{:keys [instructions pc rcv-ch pid] :as initial-state}]
+  (let [current-runner-waiting-keywd (keyword (str "waiting-status-" pid))
+        other-runner-waiting-keywd (keyword (str "waiting-status-" (other-pid initial-state)))]
+    (as-> initial-state state
+      (update state :pc inc)
+      (do
+        (reset! (current-runner-waiting-keywd state) true)
+        (println (str "Runner " pid ": Waiting!"))
+        (loop [[val port] (async/alts!! [rcv-ch (async/timeout DUET_TIMEOUT)] :priority true)]
+          (cond
+            (and
+             (not= port rcv-ch)
+             @(other-runner-waiting-keywd state)) (do
+                                                    (println (str "Runner " pid ": Deadlock!"))
+                                                    (assoc state :dead-lock? true))
+            (= port rcv-ch) (do
+                              (println (str "Runner " pid ": Received!"))
+                              (reset! (current-runner-waiting-keywd state) false)
+                              (assoc-in state [:registers (get-in instructions [pc :p1])] val))
+            :else (do
+                    (println (str "Runner " pid ": Timeout & waiting more!"))
+                    (recur (async/alts!! [rcv-ch (async/timeout DUET_TIMEOUT)] :priority true)))))))))
+(defmethod exec-next-parallel :default [state] state)
+(defn other-pid [state]
+  (mod (inc (:pid state)) 2))
+(defn make-runner [initial-state snd-ch rcv-ch pid]
+  (let [pc-max (count (:instructions initial-state))]
+    (loop [state (-> initial-state
                       (assoc :pid pid)
                       (assoc :snd-ch snd-ch)
                       (assoc :rcv-ch rcv-ch)
                       (assoc-in [:registers :p] pid))]
-      (if (or (:dead-lock? status) (= pc-max (:pc status)))
-        {:pid pid :snd-times (:snd-times status)}
-        (recur (exec-next-parallel status)))))))
+      (if (or (:dead-lock? state) (= pc-max (:pc state)))
+        {:pid pid :snd-times (:snd-times state)}
+        (recur (exec-next-parallel state))))))
+(def ^:constant DUET_TIMEOUT 200)
 (-> "duet"
     slurp
     (clojure.string/split-lines)
@@ -1634,11 +1642,14 @@ c inc -20 if c == 10"
                               (assoc parsed-instr :p2 (str->num-or-register p2)))))))
                   instrs)
       (vec instrs)
-      (hash-map :pc 0 :registers {} :instructions instrs :shared-waiting-status (agent {:0 false :1 false})))
-    (as-> status
-        (let [ch0 (async/chan 10)
-              ch1 (async/chan 10)
-              run0 (future (make-runner status ch1 ch0 0))
-              run1 (future (make-runner status ch0 ch1 1))]
+      (hash-map :pc 0 :registers {} :instructions instrs :waiting-status-0 (atom false) :waiting-status-1 (atom false)))
+    (as-> state
+        (let [ch0 (async/chan 5)
+              ch1 (async/chan 5)
+              run0 (future (make-runner state ch1 ch0 0))
+              run1 (future (make-runner state ch0 ch1 1))]
           (prn @run0)
           (prn @run1))))
+;;29/01/2018
+(keyword (str "waiting-status-" "0"))
+((fn [& {:as opts}] (map #(prn %) opts)) :a true :b false)
