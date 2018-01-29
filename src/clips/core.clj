@@ -1589,8 +1589,9 @@ c inc -20 if c == 10"
   (do
     (println (str "Runner " pid ": Sending!"))
     (as-> initial-state state
-      (async/>!! snd-ch (get-val registers (get-in instructions [pc :p1])))
-      (update state :pc inc)
+      (do
+        (async/>!! snd-ch (get-val registers (get-in instructions [pc :p1])))
+        (update state :pc inc))
       (update state :snd-times (fnil inc 0)))))
 (defmethod exec-next-parallel :rcv [{:keys [instructions pc rcv-ch pid] :as initial-state}]
   (let [current-runner-waiting-keywd (keyword (str "waiting-status-" pid))
@@ -1644,8 +1645,8 @@ c inc -20 if c == 10"
       (vec instrs)
       (hash-map :pc 0 :registers {} :instructions instrs :waiting-status-0 (atom false) :waiting-status-1 (atom false)))
     (as-> state
-        (let [ch0 (async/chan 5)
-              ch1 (async/chan 5)
+        (let [ch0 (async/chan 5000)
+              ch1 (async/chan 5000)
               run0 (future (make-runner state ch1 ch0 0))
               run1 (future (make-runner state ch0 ch1 1))]
           (prn @run0)
