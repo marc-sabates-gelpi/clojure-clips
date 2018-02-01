@@ -28,7 +28,7 @@
   (loop [next (get-next start-point) collection []]
     (let [pipe-bit (get-in pipes next \space)]
       (if (or (= pipe-bit TURN_PIPE) (= pipe-bit \space))
-        {:pos next :collection collection}
+        {:pos next :collection (conj collection pipe-bit)}
         (recur (get-next next) (conj collection pipe-bit))))))
 (defn move [[row-dir col-dir] [row col]]
   [(+ row-dir row) (+ col-dir col)])
@@ -37,16 +37,16 @@
   (let [n (int c)]
     (or (<= 97 n 122) (<= 65 n 90))))
 (defn follow-pipe [pipes]
-  (loop [dir DOWN current-pos [0 (find-pipes-beginning pipes)] collected-letters [] steps 0]
+  (loop [dir DOWN current-pos [-1 (find-pipes-beginning pipes)] collected-letters [] steps 0]
     (if (= dir :end)
-      {:letters collected-letters :steps (inc steps)} ;; I inc because somehow I ignore the very first pipe in the grid (row 0)
+      {:letters collected-letters :steps steps}
       (let [{:keys [pos collection]} (get-straight-pipe pipes current-pos (partial move dir))]
-        (recur (find-next-direction pipes pos dir) pos (into collected-letters (comp (filter letter?)) collection) (+ 1 steps (count collection))))))) ;; steps plus count plus 1 because I ignore the turning point (at each straight pipe)
+        (recur (find-next-direction pipes pos dir) pos (into collected-letters (comp (filter letter?)) collection) (+ steps (count (remove #(= \space %) collection))))))))
 (follow-pipe [[\| \space \F] [\| \space \|] [\+ \- \+]])
 ;;01/02/2018
 (-> "tubes"
  slurp
-;;     "     |          
+ ;;    "     |          
 ;;      |  +--+    
 ;;      A  |  C    
 ;;  F---|--|-E---+ 
