@@ -37,15 +37,22 @@
   (let [n (int c)]
     (or (<= 97 n 122) (<= 65 n 90))))
 (defn follow-pipe [pipes]
-  (loop [dir DOWN current-pos [0 (find-pipes-beginning pipes)] collected-letters []]
+  (loop [dir DOWN current-pos [0 (find-pipes-beginning pipes)] collected-letters [] steps 0]
     (if (= dir :end)
-      {:letters collected-letters :steps 0}
+      {:letters collected-letters :steps (inc steps)} ;; I inc because somehow I ignore the very first pipe in the grid (row 0)
       (let [{:keys [pos collection]} (get-straight-pipe pipes current-pos (partial move dir))]
-        (recur (find-next-direction pipes pos dir) pos (into collected-letters (comp (filter letter?)) collection))))))
+        (recur (find-next-direction pipes pos dir) pos (into collected-letters (comp (filter letter?)) collection) (+ 1 steps (count collection))))))) ;; steps plus count plus 1 because I ignore the turning point (at each straight pipe)
 (follow-pipe [[\| \space \F] [\| \space \|] [\+ \- \+]])
 ;;01/02/2018
 (-> "tubes"
-    slurp
+ slurp
+;;     "     |          
+;;      |  +--+    
+;;      A  |  C    
+;;  F---|--|-E---+ 
+;;      |  |  |  D 
+;;      +B-+  +--+ 
+;; "
     clojure.string/split-lines
     (as-> rows (sequence (comp
                           (map sequence)
@@ -53,7 +60,8 @@
                          rows))
     vec
     follow-pipe
-    (as-> result (reduce str (:letters result))))
+    (as-> result {:letters (reduce str (:letters result)) :steps (:steps result)})
+    prn)
 ;; -- Part 2
 (defn count-chars []
   (-> "tubes"
