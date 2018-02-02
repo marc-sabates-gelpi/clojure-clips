@@ -2,7 +2,6 @@
   (:require [clojure.core.async :as async]))
 ;;31/01/2018
 (def ^:constant VERT_PIPE \|)
-(def ^:constant HORIZ_PIPE \-)
 (def ^:constant TURN_PIPE \+)
 (def ^:constant RIGHT [0 1])
 (def ^:constant LEFT [0 -1])
@@ -24,35 +23,47 @@
      (and (not= \space (get-in pipes [(dec row) col] \space)) (not= prev-dir DOWN)) UP
      :else :end)))
 (find-next-direction [[\space \space \space] [\space \| \space] [\space \| \space]] [1 1])
-(defn get-straight-pipe [pipes [start-row start-col :as start-point] get-next]
-  (loop [next (get-next start-point) collection []]
+(defn get-straight-pipe [pipes start-point get-next]
+  (loop [next (get-next start-point) collected []]
     (let [pipe-bit (get-in pipes next \space)]
-      (if (or (= pipe-bit TURN_PIPE) (= pipe-bit \space))
-        {:pos next :collection (conj collection pipe-bit)}
-        (recur (get-next next) (conj collection pipe-bit))))))
+      (if (or
+           (= pipe-bit TURN_PIPE)
+           (= pipe-bit \space))
+        {:end-pos next :collected (conj collected pipe-bit)}
+        (recur (get-next next) (conj collected pipe-bit))))))
 (defn move [[row-dir col-dir] [row col]]
   [(+ row-dir row) (+ col-dir col)])
 (get-straight-pipe [[\| \space \space] [\| \space \space] [\+ \| \space]] [0 0] (partial move DOWN))
+(defn abs [n]
+  (if (<= 0 n)
+    n
+    (* -1 n)))
 (defn letter? [c]
   (let [n (int c)]
     (or (<= 97 n 122) (<= 65 n 90))))
 (defn follow-pipe [pipes]
-  (loop [dir DOWN current-pos [-1 (find-pipes-beginning pipes)] collected-letters [] steps 0]
+  (loop [dir DOWN current-pos [-1 (find-pipes-beginning pipes)] collected-letters [] steps 0 double-accountancy 0]
     (if (= dir :end)
-      {:letters collected-letters :steps steps}
-      (let [{:keys [pos collection]} (get-straight-pipe pipes current-pos (partial move dir))]
-        (recur (find-next-direction pipes pos dir) pos (into collected-letters (comp (filter letter?)) collection) (+ steps (count (remove #(= \space %) collection))))))))
+      {:letters collected-letters :steps steps :double-accountancy double-accountancy}
+      (let [{:keys [end-pos collected]} (get-straight-pipe pipes current-pos (partial move dir))]
+        (recur
+         (find-next-direction pipes end-pos dir)
+         end-pos
+         (into collected-letters (comp (filter letter?)) collected)
+         (+ steps (count (remove #(= \space %) collected)))
+         (+ double-accountancy (max (abs (- (get current-pos 0) (get end-pos 0))) (abs (- (get current-pos 1) (get end-pos 1))))))))))
 (follow-pipe [[\| \space \F] [\| \space \|] [\+ \- \+]])
 ;;01/02/2018
-(-> "tubes"
- slurp
- ;;    "     |          
-;;      |  +--+    
-;;      A  |  C    
-;;  F---|--|-E---+ 
-;;      |  |  |  D 
-;;      +B-+  +--+ 
-;; "
+(-> ;;"tubes"
+ ;;slurp
+"     |          
+ +-+ |          
+ | | |  +--+    
+ | | A  |  C    
+ +---|--|-E---+ 
+   F |  |  |  D 
+     +B-+  +--+ 
+                "
     clojure.string/split-lines
     (as-> rows (sequence (comp
                           (map sequence)
@@ -60,21 +71,22 @@
                          rows))
     vec
     follow-pipe
-    (as-> result {:letters (reduce str (:letters result)) :steps (:steps result)})
+    (update :letters #(reduce str %))
     prn)
 ;; -- Part 2
 (defn count-chars []
   (-> "tubes"
    slurp
-;;    "     |          
-;;      |  +--+    
-;;      A  |  C    
-;;  F---|--|-E---+ 
-;;      |  |  |  D 
+;; "     |          
+;;  +-+ |          
+;;  | | |  +--+    
+;;  | | A  |  C    
+;;  +---|--|-E---+ 
+;;    F |  |  |  D 
 ;;      +B-+  +--+ 
-;; "
-   (as-> input (clojure.string/replace input #"\s" ""))
-   count))
+;;                 "
+   (as-> input (clojure.string/replace input #"[\s]" "")
+     (count input))))
 (defn crossing? [pipes [r c]]
   (let [u (get-in pipes [r (dec c)] \space)
         d (get-in pipes [r (inc c)] \space)
@@ -90,13 +102,14 @@
 (defn count-crossings []
   (-> "tubes"
    slurp
-;;    "     |          
-;;      |  +--+    
-;;      A  |  C    
-;;  F---|--|-E---+ 
-;;      |  |  |  D 
-;;      +B-+  +--+ 
-;; "
+ ;;   "     |          
+ ;; +-+ |          
+ ;; | | |  +--+    
+ ;; | | A  |  C    
+ ;; +---|--|-E---+ 
+ ;;   F |  |  |  D 
+ ;;     +B-+  +--+ 
+ ;;                "
    clojure.string/split-lines
    (as-> rows (sequence (comp
                          (map sequence)
@@ -107,3 +120,42 @@
    frequencies
    (get true)))
 (prn (+ (count-chars) (count-crossings)))
+;;02/02/2018
+(defn print-pipes [pipes]
+  (reduce str (map #(str (reduce str %) \newline) pipes)))
+(defn get-straight-pipe-progress [initial-pipes [start-row start-col :as start-point] get-next]
+  (loop [next (get-next start-point) collection [] pipes initial-pipes]
+    (let [pipe-bit (get-in pipes next \space)]
+      (if (or (= pipe-bit TURN_PIPE) (= pipe-bit \space))
+        {:pos next :collection (conj collection pipe-bit) :pipes pipes}
+        (recur (get-next next) (conj collection pipe-bit) (assoc-in pipes next \*))))))
+(defn follow-pipe-progress [initial-pipes]
+  (loop [dir DOWN current-pos [-1 (find-pipes-beginning initial-pipes)] collected-letters [] steps 0 current-pipes initial-pipes]
+    (if (= dir :end)
+      {:letters collected-letters :steps steps}
+      (let [{:keys [pos collection pipes]} (get-straight-pipe-progress current-pipes current-pos (partial move dir))
+            _ (do
+                (spit "tubes-progress" (print-pipes pipes))
+                (Thread/sleep 3000))]
+        (recur
+         (find-next-direction pipes pos dir)
+         pos
+         (into collected-letters (comp (filter letter?)) collection)
+         (+ steps (count (remove #(= \space %) collection))) pipes)))))
+(-> "tubes"
+ slurp
+;; " +-+ |          
+;;  | | |  +--+    
+;;  | | A  |  C    
+;;  +---|--|-E---+ 
+;;    F |  |  |  D 
+;;      +B-+  +--+ "
+    clojure.string/split-lines
+    (as-> rows (sequence (comp
+                          (map sequence)
+                          (map vec))
+                         rows))
+    vec
+    follow-pipe-progress
+    (as-> result {:letters (reduce str (:letters result)) :steps (:steps result)})
+    prn)
