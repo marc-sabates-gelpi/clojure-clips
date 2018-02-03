@@ -181,3 +181,70 @@
     follow-pipe-progress
     (as-> result {:letters (reduce str (:letters result)) :steps (:steps result)})
     prn)
+;;03/02/2018
+;; --- Day 20: Particle Swarm --- Part 1
+(-> "particles"
+    slurp
+    clojure.string/split-lines
+    (as-> lines (sequence (comp
+                           (map #(re-seq #"-?[0-9]+" %))
+                           (map #(map read-string %))
+                           (map vec)
+                           (map (fn [[posx posy posz velx vely velz accx accy accz]] #:particle{:position {:x posx :y posy :z posz} :velocity {:x velx :y vely :z velz} :acceleration {:x accx :y accy :z accz}}))
+                           (map-indexed #(assoc %2 :particle/id %1)))
+                          lines))
+    (as-> particles (sort-by (fn [{{:keys [x y z]} :particle/acceleration}]
+                               (+ (abs x) (abs y) (abs z)))
+                             particles))
+    first
+    ;;(as-> particles (find-closest [0 0 0] particles))
+    prn)
+(defn get-next-tick-state [initial-particles]
+  (as-> initial-particles particles
+    (pmap #(as-> % particle
+             (update-in particle [:particle/velocity :x] + (get-in particle [:particle/acceleration :x]))
+             (update-in particle [:particle/velocity :y] + (get-in particle [:particle/acceleration :y]))
+             (update-in particle [:particle/velocity :z] + (get-in particle [:particle/acceleration :z]))
+             (update-in particle [:particle/position :x] + (get-in particle [:particle/velocity :x]))
+             (update-in particle [:particle/position :y] + (get-in particle [:particle/velocity :y]))
+             (update-in particle [:particle/position :z] + (get-in particle [:particle/velocity :z])))
+          particles)
+    (remove-collisions particles)))
+(defn remove-collisions [particles]
+  (let [living-particles-ids (set
+                              (map
+                               :particle/id
+                               (flatten
+                                (filter
+                                 #(= 1 (count %))
+                                 (vals
+                                  (group-by
+                                   (fn [{{:keys [x y z]} :particle/position}] [x y z])
+                                   particles))))))]
+    (filter
+     #(living-particles-ids (:particle/id %))
+     particles)))
+(defn continue?  [particles ticks]
+  (>= ticks 1000))
+(defn run-simulation [initial-particles]
+  (loop [ticks 0 particles initial-particles]
+    (if (continue? particles ticks)
+      #:particles-simulation{:ticks ticks :particles particles}
+      (recur (inc ticks) (get-next-tick-state particles)))))
+;; -- Part 2
+(-> "particles"
+    slurp
+    clojure.string/split-lines
+    (as-> lines (sequence (comp
+                           (map #(re-seq #"-?[0-9]+" %))
+                           (map #(map read-string %))
+                           (map vec)
+                           (map (fn [[posx posy posz velx vely velz accx accy accz]] #:particle{:position {:x posx :y posy :z posz} :velocity {:x velx :y vely :z velz} :acceleration {:x accx :y accy :z accz}}))
+                           (map-indexed #(assoc %2 :particle/id %1)))
+                          lines))
+    (as-> particles (run-simulation particles))
+    (as-> particles (assoc particles :particles-simulation/count (count (:particles-simulation/particles particles))))
+    (update :particles-simulation/particles empty)
+    prn)
+(filter #(#{0} (:particle/id %)) '({ :particle/position { :x -1021, :y -2406, :z 1428 }, :particle/velocity { :x 11, :y 24, :z -73 }, :particle/acceleration { :x 4, :y 9, :z 0 }, :particle/id 0 } { :particle/position { :x -1021, :y -2406, :z 1428 }, :particle/velocity { :x 11, :y 24, :z -73 }, :particle/acceleration { :x 4, :y 9, :z 0 }, :particle/id 1 }))
+(filter #(#{0} (:id %)) '({:id 0} {:id 1}))
