@@ -26,9 +26,11 @@
 (defn get-straight-pipe [pipes start-point get-next]
   (loop [next (get-next start-point) collected []]
     (let [pipe-bit (get-in pipes next \space)]
-      (if (or
-           (= pipe-bit TURN_PIPE)
-           (= pipe-bit \space))
+      (if (and
+           (or
+            (= pipe-bit TURN_PIPE)
+            (letter? pipe-bit))
+           (= \space (get-in pipes (get-next next) \space)))
         {:end-pos next :collected (conj collected pipe-bit)}
         (recur (get-next next) (conj collected pipe-bit))))))
 (defn move [[row-dir col-dir] [row col]]
@@ -42,28 +44,43 @@
   (let [n (int c)]
     (or (<= 97 n 122) (<= 65 n 90))))
 (defn follow-pipe [pipes]
-  (loop [dir DOWN current-pos [-1 (find-pipes-beginning pipes)] collected-letters [] steps 0 double-accountancy 0]
+  (loop [dir DOWN current-pos [-1 (find-pipes-beginning pipes)] result #:result{:letters [] :steps [] :double-accountancy [] :raw-pipe []}]
     (if (= dir :end)
-      {:letters collected-letters :steps steps :double-accountancy double-accountancy}
+      result
       (let [{:keys [end-pos collected]} (get-straight-pipe pipes current-pos (partial move dir))]
         (recur
          (find-next-direction pipes end-pos dir)
          end-pos
-         (into collected-letters (comp (filter letter?)) collected)
-         (+ steps (count (remove #(= \space %) collected)))
-         (+ double-accountancy (max (abs (- (get current-pos 0) (get end-pos 0))) (abs (- (get current-pos 1) (get end-pos 1))))))))))
+         (-> result
+             (update :result/letters into (comp (filter letter?)) collected)
+             (update :result/steps conj (count collected))
+             (update :result/double-accountancy conj (max
+                                                      (abs
+                                                       (- (get current-pos 0) (get end-pos 0)))
+                                                      (abs
+                                                       (- (get current-pos 1) (get end-pos 1)))))
+             (update :result/raw-pipe conj collected)))))))
 (follow-pipe [[\| \space \F] [\| \space \|] [\+ \- \+]])
 ;;01/02/2018
-(-> ;;"tubes"
- ;;slurp
-"     |          
- +-+ |          
- | | |  +--+    
- | | A  |  C    
- +---|--|-E---+ 
-   F |  |  |  D 
-     +B-+  +--+ 
-                "
+(-> "tubes"
+ slurp
+;; "     |          
+;;  +-+ |          
+;;  | | |  +--+    
+;;  | | A  |  C    
+;;  +---|--|-E---+ 
+;;    F |  |  |  D 
+;;      +B-+  +--+ 
+;;                  "
+;; "           |   
+;;  +-+ +-+   A   
+;;  | | | |   |   
+;;  | | | | B-|-+ 
+;;  | | | |   | | 
+;;  | +-+ +---+ | 
+;;  |           | 
+;;  +-----------+ 
+;;                "
     clojure.string/split-lines
     (as-> rows (sequence (comp
                           (map sequence)
@@ -71,8 +88,13 @@
                          rows))
     vec
     follow-pipe
-    (update :letters #(reduce str %))
-    prn)
+    (update :result/letters #(reduce str %))
+    (update :result/steps #(reduce + %))
+    (update :result/double-accountancy #(reduce + %))
+    (assoc :result/raw-pipe [])
+    prn
+    ;;(as-> results (spit "tubes-results" results))
+    )
 ;; -- Part 2
 (defn count-chars []
   (-> "tubes"
@@ -85,7 +107,7 @@
 ;;    F |  |  |  D 
 ;;      +B-+  +--+ 
 ;;                 "
-   (as-> input (clojure.string/replace input #"[\s]" "")
+   (as-> input (clojure.string/replace input #"\s" "")
      (count input))))
 (defn crossing? [pipes [r c]]
   (let [u (get-in pipes [r (dec c)] \space)
@@ -102,11 +124,11 @@
 (defn count-crossings []
   (-> "tubes"
    slurp
- ;;   "     |          
+   ;; "     |          
  ;; +-+ |          
  ;; | | |  +--+    
  ;; | | A  |  C    
- ;; +---|--|-E---+ 
+ ;; +-|-|--|-E---+ 
  ;;   F |  |  |  D 
  ;;     +B-+  +--+ 
  ;;                "
