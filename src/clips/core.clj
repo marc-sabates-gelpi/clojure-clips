@@ -248,3 +248,62 @@
     prn)
 (filter #(#{0} (:particle/id %)) '({ :particle/position { :x -1021, :y -2406, :z 1428 }, :particle/velocity { :x 11, :y 24, :z -73 }, :particle/acceleration { :x 4, :y 9, :z 0 }, :particle/id 0 } { :particle/position { :x -1021, :y -2406, :z 1428 }, :particle/velocity { :x 11, :y 24, :z -73 }, :particle/acceleration { :x 4, :y 9, :z 0 }, :particle/id 1 }))
 (filter #(#{0} (:id %)) '({:id 0} {:id 1}))
+;; 06/02/2018
+;; --- Day 21: Fractal Art --- Part 1
+;; 07/02/2018
+(require '[clojure.spec.alpha :as s])
+(s/def ::axis #{:x :y})
+;; (s/def ::row-chars (s/+ char?))
+;; (s/conform ::row-chars '(\a \b \c))
+;; (s/def ::row-strings string?)
+;; (s/conform ::row-strings "string")
+;; (s/def ::rows-chars (s/+ ::row-chars))
+;; (s/conform ::rows-chars '((\a \b \c) (\a \b \c)))
+;; (s/explain-data ::rows-chars '((\a \b \c) (\a \b \c)))
+;; (s/def ::rows-strings (s/+ ::row-strings))
+;; (s/conform ::rows-strings '("string" "string"))
+;; (s/def ::rows (s/or :string (s/+ ::row-strings) :char (s/+ ::row-chars)))
+(s/def ::rows (s/+ string?))
+(s/def ::image (s/& (s/+ string?) #(= (count %) (count (first %)))))
+;; (defn make-image
+;;   "Make image. Implementation of an image with an array of strings"
+;;   [rows]
+;;   {:post [(s/valid? ::image %)]}
+;;   (let [{:keys [string char] :as all} (s/conform ::rows rows)]
+;;     (if (= all ::s/invalid)
+;;       (throw (ex-info "Invalid input" (s/explain-data ::rows rows)))
+;;       (if (not (nil? string))
+;;         (into [] rows)
+;;         (into [] (map str rows))))))
+(defn make-image
+  "Make image. Implementation of an image with an array of strings"
+  [rows]
+  {:pre [(s/valid? ::rows rows)]
+   :post [(s/valid? ::image %)]}
+  (into [] rows))
+(defn get-rows
+  "Get the rows of an image. Implementation of an image with an array os strings"
+  [image]
+  {:pre [(s/valid? ::image image)]
+   :post [(s/valid? ::rows %)]}
+  image)
+(make-image '(".#" "#."))
+;;(make-image '((\. \#) (\# \.)))
+(get-rows (make-image '(".#" "#.")))
+(defn flip
+  [image axis]
+  {:pre [(s/valid? ::axis axis) (s/valid? ::image image)]}
+  (if (= axis :y)
+    (make-image (reverse (get-rows image)))
+    (make-image (map #(->> %
+                          reverse
+                          (apply str)) (get-rows image)))))
+(flip '(".#" "#.") :y)
+(flip '(".#" "#.") :x)
+(get-in ["01" "23"] [0 1])
+;; (defn rotate [image quadrant])
+;; (-> "artist-rules"
+;;     slurp
+;;     clojure.string/split-lines
+;;     (sequence (comp
+;;                ())))
