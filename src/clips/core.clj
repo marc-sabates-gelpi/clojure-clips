@@ -253,55 +253,71 @@
 ;; 07/02/2018
 (require '[clojure.spec.alpha :as s])
 (s/def ::axis #{:x :y})
-;; (s/def ::row-chars (s/+ char?))
-;; (s/conform ::row-chars '(\a \b \c))
-;; (s/def ::row-strings string?)
-;; (s/conform ::row-strings "string")
-;; (s/def ::rows-chars (s/+ ::row-chars))
-;; (s/conform ::rows-chars '((\a \b \c) (\a \b \c)))
-;; (s/explain-data ::rows-chars '((\a \b \c) (\a \b \c)))
-;; (s/def ::rows-strings (s/+ ::row-strings))
-;; (s/conform ::rows-strings '("string" "string"))
-;; (s/def ::rows (s/or :string (s/+ ::row-strings) :char (s/+ ::row-chars)))
-(s/def ::rows (s/+ string?))
+(s/def ::rows-chars (s/coll-of (s/coll-of char?)))
+(s/def ::rows-strings (s/coll-of string?))
+(s/def ::rows (s/or :string ::rows-strings :char ::rows-chars))
+;; (s/def ::rows (s/+ string?))
 (s/def ::image (s/& (s/+ string?) #(= (count %) (count (first %)))))
-;; (defn make-image
-;;   "Make image. Implementation of an image with an array of strings"
-;;   [rows]
-;;   {:post [(s/valid? ::image %)]}
-;;   (let [{:keys [string char] :as all} (s/conform ::rows rows)]
-;;     (if (= all ::s/invalid)
-;;       (throw (ex-info "Invalid input" (s/explain-data ::rows rows)))
-;;       (if (not (nil? string))
-;;         (into [] rows)
-;;         (into [] (map str rows))))))
+(s/conform ::rows '(".#" "#."))
+(s/conform ::rows '((\. \#) (\# \.)))
 (defn make-image
   "Make image. Implementation of an image with an array of strings"
   [rows]
-  {:pre [(s/valid? ::rows rows)]
-   :post [(s/valid? ::image %)]}
-  (into [] rows))
+  {:post [(s/valid? ::image %)]}
+  (let [[type value :as all] (s/conform ::rows rows)]
+    (if (= all ::s/invalid)
+      (throw (ex-info "Invalid input" (s/explain-data ::rows rows)))
+      (if (= :string type)
+        (into [] rows)
+        (into [] (map (partial apply str) rows))))))
+;; (defn make-image
+;;   "Make image. Implementation of an image with an array of strings"
+;;   [rows]
+;;   {:pre [(s/valid? ::rows rows)]
+;;    :post [(s/valid? ::image %)]}
+;;   (into [] rows))
 (defn get-rows
-  "Get the rows of an image. Implementation of an image with an array os strings"
+  "Get the rows of an image. Implementation of an image with an array of strings"
   [image]
   {:pre [(s/valid? ::image image)]
    :post [(s/valid? ::rows %)]}
   image)
 (make-image '(".#" "#."))
-;;(make-image '((\. \#) (\# \.)))
+(make-image '((\. \#) (\# \.)))
 (get-rows (make-image '(".#" "#.")))
 (defn flip
+  "Mirros the image olong the axis"
   [image axis]
   {:pre [(s/valid? ::axis axis) (s/valid? ::image image)]}
   (if (= axis :y)
     (make-image (reverse (get-rows image)))
     (make-image (map #(->> %
-                          reverse
-                          (apply str)) (get-rows image)))))
-(flip '(".#" "#.") :y)
-(flip '(".#" "#.") :x)
+                          reverse) (get-rows image)))))
+(flip '("##" "#.") :y)
+(flip '("##" "#.") :x)
 (get-in ["01" "23"] [0 1])
-;; (defn rotate [image quadrant])
+(s/def ::rotation #{:90 :180 :270})
+(defn rotate
+  "Rotates an image anticlock wise"
+  [image rotation]
+  {:pre [(s/valid? ::image image) (s/valid? ::rotation rotation)]
+   :post [(s/valid? ::image %)]}
+  (cond
+    (= :90 rotation) (-> image
+                         get-rows
+                         (as-> r (apply map vector r))
+                         make-image
+                         (flip :y))  
+    (= :180 rotation) (-> image
+                          (flip :x)
+                          (flip :y))
+    (= :270 rotation) (-> image
+                          (rotate :90)
+                          (rotate :180))))
+(rotate (make-image '((\1 \2 \3) (\4 \5 \6) (\7 \8 \9))) :180)
+(rotate (make-image '((\1 \2 \3) (\4 \5 \6) (\7 \8 \9))) :90)
+(rotate (make-image '((\1 \2 \3) (\4 \5 \6) (\7 \8 \9))) :270)
+(apply map vector '((\1 \2 \3) (\4 \5 \6) (\7 \8 \9)))
 ;; (-> "artist-rules"
 ;;     slurp
 ;;     clojure.string/split-lines
