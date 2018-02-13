@@ -287,19 +287,19 @@
 (get-rows (make-image '(".#" "#.")))
 (defn flip
   "Mirros the image olong the axis"
-  [image axis]
+  [axis image]
   {:pre [(s/valid? ::axis axis) (s/valid? ::image image)]}
   (if (= axis :y)
     (make-image (reverse (get-rows image)))
     (make-image (map #(->> %
                           reverse) (get-rows image)))))
-(flip '("##" "#.") :y)
-(flip '("##" "#.") :x)
+(flip :y '("##" "#."))
+(flip :x '("##" "#."))
 (get-in ["01" "23"] [0 1])
 (s/def ::rotation #{:90 :180 :270})
 (defn rotate
-  "Rotates an image anticlock wise"
-  [image rotation]
+  "Rotates an image anticlock-wise"
+  [rotation image]
   {:pre [(s/valid? ::image image) (s/valid? ::rotation rotation)]
    :post [(s/valid? ::image %)]}
   (cond
@@ -307,17 +307,44 @@
                          get-rows
                          (as-> r (apply map vector r))
                          make-image
-                         (flip :y))  
-    (= :180 rotation) (-> image
-                          (flip :x)
-                          (flip :y))
-    (= :270 rotation) (-> image
-                          (rotate :90)
-                          (rotate :180))))
-(rotate (make-image '((\1 \2 \3) (\4 \5 \6) (\7 \8 \9))) :180)
-(rotate (make-image '((\1 \2 \3) (\4 \5 \6) (\7 \8 \9))) :90)
-(rotate (make-image '((\1 \2 \3) (\4 \5 \6) (\7 \8 \9))) :270)
+                         (as-> i (flip :y i)))  
+    (= :180 rotation) (as-> image i
+                          (flip :x i)
+                          (flip :y i))
+    (= :270 rotation) (as-> image i
+                          (rotate :90 i)
+                          (rotate :180 i))))
+(rotate :180 (make-image '((\1 \2 \3) (\4 \5 \6) (\7 \8 \9))))
+(rotate :90 (make-image '((\1 \2 \3) (\4 \5 \6) (\7 \8 \9))))
+(rotate :270 (make-image '((\1 \2 \3) (\4 \5 \6) (\7 \8 \9))))
 (apply map vector '((\1 \2 \3) (\4 \5 \6) (\7 \8 \9)))
+(= (make-image '((\1 \2 \3) (\4 \5 \6) (\7 \8 \9))) (rotate :180 (rotate :180 (make-image '((\1 \2 \3) (\4 \5 \6) (\7 \8 \9))))))
+(def fx (partial flip :x))
+(def fy (partial flip :y))
+(def rot90 (partial rotate :90))
+(defn test-all-moves [image rule]
+  {:pre [(s/valid? ::image image) (s/valid? string? rule)]
+   :post [(s/valid? (s/nilable ::image) %)]}
+  (let [rows (-> rule
+                 (clojure.string/replace #" " "")
+                 (as-> r (re-seq #"[\.#]+" r)))
+        [orig dest] (if (= 5 (count rows))
+                      [(make-image (take 2 rows)) (make-image (drop 2 rows))]
+                      [(make-image (take 3 rows)) (make-image (drop 3 rows))])]
+    (loop [match? false current image ops [fx fy fx rot90 fx fy fx]]
+      (cond
+        match? (make-image dest)
+        (empty? ops) nil
+        :else (recur (= current orig) ((first ops) (make-image current)) (next ops))))))
+;; M-x cljr-hotload-dependency RET [org.clojure/tools.trace "0.7.9"]
+(use 'clojure.tools.trace)
+(trace (* 2 3))
+(trace-ns *ns*)
+(untrace-ns *ns*)
+;; C-c RET h d RET [spyscope "0.1.6"]
+(use 'spyscope.core)
+(test-all-moves (make-image '(".#" "##")) "#./## => .#./.../##.")
+(test-all-moves (make-image '("..." "##." ".#.")) "#../.../#.# => .#../.#../#.#./####")
 ;; (-> "artist-rules"
 ;;     slurp
 ;;     clojure.string/split-lines
