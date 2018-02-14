@@ -267,9 +267,11 @@
   (let [[type value :as all] (s/conform ::rows rows)]
     (if (= all ::s/invalid)
       (throw (ex-info "Invalid input" (s/explain-data ::rows rows)))
-      (if (= :string type)
-        (into [] rows)
-        (into [] (map (partial apply str) rows))))))
+      (let [img (cond
+                  (= :string type) (into [] rows)
+                  (= :char type) (into [] (map (partial apply str) rows)))
+            _ (prn img)]
+        img))))
 ;; (defn make-image
 ;;   "Make image. Implementation of an image with an array of strings"
 ;;   [rows]
@@ -341,12 +343,86 @@
 (trace (* 2 3))
 (trace-ns *ns*)
 (untrace-ns *ns*)
-;; C-c RET h d RET [spyscope "0.1.6"]
+;; C-c RET h d [spyscope "0.1.6"]
 (use 'spyscope.core)
 (test-all-moves (make-image '(".#" "##")) "#./## => .#./.../##.")
 (test-all-moves (make-image '("..." "##." ".#.")) "#../.../#.# => .#../.#../#.#./####")
-;; (-> "artist-rules"
-;;     slurp
-;;     clojure.string/split-lines
-;;     (sequence (comp
-;;                ())))
+;; 14/02/2018
+(defn make-image-from-4
+  "Makes an image from 4 images as its corners in the following shape:
+    ii | i
+   ---------
+    iii| iv "
+  [[i ii iii iv :as all]]
+  {:pre [(s/valid? (s/coll-of ::image) all)]
+   :post [(s/valid? ::image %)]}
+  (let [fst-half (map concat (get-rows ii) (get-rows i))
+        scnd-half (map concat (get-rows iii) (get-rows iv))]
+    (make-image (concat fst-half scnd-half))))
+(defn get-size [image]
+  (count (get-rows image)))
+(def r-of-pair (fn [[_ e]] e))
+(def l-of-pair (fn [[e _]] e))
+(defn divide-image-in-4
+  "Gets the 4 corners of an image as 4 smaller images in the following way:
+    ii | i
+   ---------
+    iii| iv "
+  [image]
+  {:pre [(s/valid? ::image image)]
+   :post [(s/valid? (s/coll-of ::image) %)]}
+  (let [mid (/ (get-size image) 2)
+        fst-half #(take mid %)
+        scnd-half #(drop mid %)
+        image-rows (get-rows image)
+        rows-pairs (map #(vector (fst-half %) (scnd-half %)) image-rows)
+        fst-half-image (fst-half rows-pairs)
+        scnd-half-image (scnd-half rows-pairs)]
+    (vector (make-image (map r-of-pair fst-half-image))
+            (make-image (map l-of-pair fst-half-image))
+            (make-image (map l-of-pair scnd-half-image))
+            (make-image (map r-of-pair scnd-half-image)))))
+(divide-image-in-4 (make-image '(".#" "##")))
+(make-image-from-4 (divide-image-in-4 (make-image '(".#.#" "...." "####" "#..#"))))
+(defn apply-rules-quadrant [image initial-rules]
+  (loop [rules initial-rules new-image nil]
+    (cond
+      (not (nil? new-image)) new-image
+      (empty? rules) image
+      :else (recur
+             (rest rules)
+             (test-all-moves image (first rules))))))
+(defn apply-rules-image [image rules]
+  (let [[i ii iii iv] (divide-image-in-4 image)]
+    (make-image-from-4 [(increase-resolution i rules)
+                        (increase-resolution ii rules)
+                        (increase-resolution iii rules)
+                        (increase-resolution iv rules)])))
+(s/def ::twos (s/coll-of string?))
+(s/def ::threes (s/coll-of string?))
+(s/def ::rules (s/keys :req [::twos ::threes]))
+(defn increase-resolution [image {:keys [clips.core/twos clips.core/threes] :as rules}]
+  {:pre [(s/valid? ::image image) (s/valid? ::rules rules)]
+   :post [(s/valid? ::image %)]}
+  (let [size (get-size image)]
+    (cond
+      (= 3 size) (apply-rules-quadrant image threes)
+      (= 2 size) (apply-rules-quadrant image twos)
+      (= 0 (mod size 3)) (apply-rules-image image rules)
+      (= 0 (mod size 2)) (apply-rules-image image rules))))
+(def ^:constant RES-TIMES 5)
+(def ^:constant INITIAL-IMAGE '(".#." "..#" "###"))
+(-> "artist-rules"
+    slurp
+    clojure.string/split-lines
+    (as-> rules-lines (hash-map ::twos (take 6 rules-lines) ::threes (drop 6 rules-lines)))
+    (as-> rules (loop [times RES-TIMES image (make-image INITIAL-IMAGE)]
+                  (if (= 0 times)
+                    image
+                    (recur (dec times) (increase-resolution image rules)))))
+    get-rows
+    (as-> image (transduce (comp
+                            (map #(filter #{\#} %))
+                            (map count))
+                           (completing +)
+                           image)))
