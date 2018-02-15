@@ -1,5 +1,6 @@
 (ns clips.core
-  (:require [clojure.core.async :as async]))
+  (:require [clojure.core.async :as async]
+            [spyscope.core]))
 ;;31/01/2018
 (def ^:constant VERT_PIPE \|)
 (def ^:constant TURN_PIPE \+)
@@ -257,7 +258,7 @@
 (s/def ::rows-strings (s/coll-of string?))
 (s/def ::rows (s/or :string ::rows-strings :char ::rows-chars))
 ;; (s/def ::rows (s/+ string?))
-(s/def ::image (s/& (s/+ string?) #(= (count %) (count (first %)))))
+(s/def ::image (s/& (s/+ string?) (fn [coll] (let [num-rows (count coll)] (= num-rows (get (frequencies (map count coll)) num-rows))))))
 (s/conform ::rows '(".#" "#."))
 (s/conform ::rows '((\. \#) (\# \.)))
 (defn make-image
@@ -267,11 +268,9 @@
   (let [[type value :as all] (s/conform ::rows rows)]
     (if (= all ::s/invalid)
       (throw (ex-info "Invalid input" (s/explain-data ::rows rows)))
-      (let [img (cond
-                  (= :string type) (into [] rows)
-                  (= :char type) (into [] (map (partial apply str) rows)))
-            _ (prn img)]
-        img))))
+      (cond
+        (= :string type) (into [] rows)
+        (= :char type) (into [] (map (partial apply str) rows))))))
 ;; (defn make-image
 ;;   "Make image. Implementation of an image with an array of strings"
 ;;   [rows]
@@ -325,7 +324,7 @@
 (def fy (partial flip :y))
 (def rot90 (partial rotate :90))
 (defn test-all-moves [image rule]
-  {:pre [(s/valid? ::image image) (s/valid? string? rule)]
+  {:pre [(s/valid? ::image image) (s/valid? (s/and string? (s/or :two ::rule-two :three ::rule-three)) rule)]
    :post [(s/valid? (s/nilable ::image) %)]}
   (let [rows (-> rule
                  (clojure.string/replace #" " "")
@@ -354,13 +353,20 @@
    ---------
     iii| iv "
   [[i ii iii iv :as all]]
-  {:pre [(s/valid? (s/coll-of ::image) all)]
+  {:pre [(s/valid? (s/coll-of ::image :count 4) all)]
    :post [(s/valid? ::image %)]}
-  (let [fst-half (map concat (get-rows ii) (get-rows i))
+  (let [_ #spy/p i _ #spy/p ii _ #spy/p iii _ #spy/p iv fst-half (map concat (get-rows ii) (get-rows i))
         scnd-half (map concat (get-rows iii) (get-rows iv))]
     (make-image (concat fst-half scnd-half))))
 (defn get-size [image]
-  (count (get-rows image)))
+  {:pre [(s/valid? ::image image)]
+   :post [(s/valid? int? %)]}
+  (let [rows (get-rows image)
+        num-rows (count rows)
+        column-lengths (map count rows)]
+    (if (= num-rows (get (frequencies column-lengths) num-rows))
+      num-rows
+      (throw (ex-info "Irregular image" {:num-rows num-rows :column-lengths column-lengths})))))
 (def r-of-pair (fn [[_ e]] e))
 (def l-of-pair (fn [[e _]] e))
 (defn divide-image-in-4
@@ -370,7 +376,7 @@
     iii| iv "
   [image]
   {:pre [(s/valid? ::image image)]
-   :post [(s/valid? (s/coll-of ::image) %)]}
+   :post [(s/valid? (s/coll-of ::image :count 4) %)]}
   (let [mid (/ (get-size image) 2)
         fst-half #(take mid %)
         scnd-half #(drop mid %)
@@ -385,6 +391,8 @@
 (divide-image-in-4 (make-image '(".#" "##")))
 (make-image-from-4 (divide-image-in-4 (make-image '(".#.#" "...." "####" "#..#"))))
 (defn apply-rules-quadrant [image initial-rules]
+  {:pre [(s/valid? ::image image) (s/valid? ::rules-list initial-rules)]
+   :post [(s/valid? ::image %)]}
   (loop [rules initial-rules new-image nil]
     (cond
       (not (nil? new-image)) new-image
@@ -393,13 +401,20 @@
              (rest rules)
              (test-all-moves image (first rules))))))
 (defn apply-rules-image [image rules]
+  {:pre [(s/valid? ::image image) (s/valid? ::rules rules)]
+   :post [(s/valid? ::image %)]}
   (let [[i ii iii iv] (divide-image-in-4 image)]
     (make-image-from-4 [(increase-resolution i rules)
                         (increase-resolution ii rules)
                         (increase-resolution iii rules)
                         (increase-resolution iv rules)])))
-(s/def ::twos (s/coll-of string?))
-(s/def ::threes (s/coll-of string?))
+(def ^:constant THREES-PATTERN #"[\.#]{3}/[\.#]{3}/[\.#]{3}\s+=>\s+[\.#]{4}/[\.#]{4}/[\.#]{4}/[\.#]{4}")
+(def ^:constant TWOS-PATTERN #"[\.#]{2}/[\.#]{2}\s+=>\s+[\.#]{3}/[\.#]{3}/[\.#]{3}")
+(s/def ::rule-two (s/and string? #(re-find TWOS-PATTERN %)))
+(s/def ::rule-three (s/and string? #(re-find THREES-PATTERN %)))
+(s/def ::twos (s/coll-of ::rule-two))
+(s/def ::threes (s/coll-of ::rule-three))
+(s/def ::rules-list (s/or :list-twos ::twos :list-threes ::threes))
 (s/def ::rules (s/keys :req [::twos ::threes]))
 (defn increase-resolution [image {:keys [clips.core/twos clips.core/threes] :as rules}]
   {:pre [(s/valid? ::image image) (s/valid? ::rules rules)]
@@ -408,14 +423,20 @@
     (cond
       (= 3 size) (apply-rules-quadrant image threes)
       (= 2 size) (apply-rules-quadrant image twos)
-      (= 0 (mod size 3)) (apply-rules-image image rules)
-      (= 0 (mod size 2)) (apply-rules-image image rules))))
+      :else (apply-rules-image image rules))))
 (def ^:constant RES-TIMES 5)
 (def ^:constant INITIAL-IMAGE '(".#." "..#" "###"))
 (-> "artist-rules"
     slurp
     clojure.string/split-lines
-    (as-> rules-lines (hash-map ::twos (take 6 rules-lines) ::threes (drop 6 rules-lines)))
+    (as-> rules-lines (reduce (fn [state el]
+                                (if (= 5 (-> el
+                                             (clojure.string/split #"/|(?:=>)")
+                                             count))
+                                  (update state ::twos conj el)
+                                  (update state ::threes conj el)))
+                              {::twos [] ::threes []}
+                              rules-lines))
     (as-> rules (loop [times RES-TIMES image (make-image INITIAL-IMAGE)]
                   (if (= 0 times)
                     image
