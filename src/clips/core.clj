@@ -390,7 +390,7 @@
             (make-image (map r-of-pair scnd-half-image)))))
 (divide-image-in-4 (make-image '(".#" "##")))
 (make-image-from-4 (divide-image-in-4 (make-image '(".#.#" "...." "####" "#..#"))))
-(defn apply-rules-quadrant [image initial-rules]
+(defn apply-rules-atomic-image [initial-rules image]
   {:pre [(s/valid? ::image image) (s/valid? ::rules-list initial-rules)]
    :post [(s/valid? ::image %)]}
   (loop [rules initial-rules new-image nil]
@@ -416,14 +416,27 @@
 (s/def ::threes (s/coll-of ::rule-three))
 (s/def ::rules-list (s/or :list-twos ::twos :list-threes ::threes))
 (s/def ::rules (s/keys :req [::twos ::threes]))
+(defn divisible-by [x n]
+  (= 0 (mod x n)))
+(s/def ::multiple-of-2 (s/and pos-int? #(divisible-by % 2)))
+(s/def ::multiple-of-3 (s/and pos-int? #(divisible-by % 3)))
+(s/def ::valid-image-size (s/or
+                           :multiple-of-2 ::multiple-of-2
+                           :multiple-of-3 ::multiple-of-3))
+(defn divide-evenly [size]
+  {:pre [(s/valid? ::valid-image-size size)]
+   :post [(s/valid? ::valid-image-size %)]}
+  (cond
+    (>= 3 size) size
+    (divisible-by size 2) (/ size 2)
+    (divisible-by size 3) (/ size 3)))
 (defn increase-resolution [image {:keys [clips.core/twos clips.core/threes] :as rules}]
   {:pre [(s/valid? ::image image) (s/valid? ::rules rules)]
    :post [(s/valid? ::image %)]}
-  (let [size (get-size image)]
-    (cond
-      (= 3 size) (apply-rules-quadrant image threes)
-      (= 2 size) (apply-rules-quadrant image twos)
-      :else (apply-rules-image image rules))))
+  (let [size (get-size image) split-size (divide-evenly size)]
+    (-> (split-image image split-size)
+        (apply-rules split-size rules)
+        (regroup-image split-size))))
 (def ^:const RES-TIMES 5)
 (def ^:const INITIAL-IMAGE '(".#." "..#" "###"))
 (-> "artist-rules"
@@ -446,3 +459,35 @@
                             (map count))
                            (completing +)
                            image)))
+;;17/02/2018
+(defn split-image [image size]
+  {:pre [(s/valid? ::image image) (s/valid? ::valid-image-size size)]
+   ;; :post [(s/valid? (s/coll-of ::image) %)]
+   }
+  (-> (partition size (get-rows image))
+      (as-> t (map #(map (partial partition size) %) t))
+      (as-> t (map vec t))
+      (as-> r (map #(apply map (fn ([a b c] (make-image (list a b c)))
+                                 ([a b] (make-image (list a b)))) %) r))
+      (as-> r (reduce #(into %1 %2) [] r))))
+(defn apply-rules [images size rules]
+  {:pre [;; (s/valid? (s/coll-of ::image) images)
+         (s/valid? ::valid-image-size size)
+         (s/valid? ::rules rules)]
+   ;; :post [(s/valid? (s/every ::image) %)]
+   }
+  (let [{:keys [clips.core/twos clips.core/threes]} (s/conform ::rules rules)]
+    (map (partial
+          apply-rules-atomic-image
+          (if (= 2 size) twos threes))
+         images)))
+(defn regroup-image [images size]
+  {:pre [(s/valid? (s/coll-of ::image) images) (s/valid? ::valid-image-size size)]
+   :post [(s/valid? ::image %)]}
+  (make-image '(".." "..")))
+(partition 2 (get-rows (make-image '(".." ".."))))
+(split-image (make-image '("#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##.")) 3)
+(split-image (make-image '("#.#.#." "#.#.#." "#.#.#." "#.#.#." "#.#.#." "#.#.#.")) 2)
+(-> (map (partial partition 3) '("#.#.#.##." "#.#.#.##." "#.#.#.##."))
+    vec
+    (as-> r (map #(make-image (list %1 %2 %3)) (get r 0) (get r 1) (get r 2))))
