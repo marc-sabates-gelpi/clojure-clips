@@ -2,12 +2,12 @@
   (:require [clojure.core.async :as async]
             [spyscope.core]))
 ;;31/01/2018
-(def ^:constant VERT_PIPE \|)
-(def ^:constant TURN_PIPE \+)
-(def ^:constant RIGHT [0 1])
-(def ^:constant LEFT [0 -1])
-(def ^:constant DOWN [1 0])
-(def ^:constant UP [-1 0])
+(def ^:const VERT_PIPE \|)
+(def ^:const TURN_PIPE \+)
+(def ^:const RIGHT [0 1])
+(def ^:const LEFT [0 -1])
+(def ^:const DOWN [1 0])
+(def ^:const UP [-1 0])
 (defn find-pipes-beginning [[starting-line & _]]
   (reduce-kv (fn [found-pos k v] (if (= v VERT_PIPE) k found-pos)) nil starting-line))
 (find-pipes-beginning [[\space \space \space \| \space \space] [\space \space \space \| \space \space]])
@@ -396,7 +396,7 @@
   (loop [rules initial-rules new-image nil]
     (cond
       (not (nil? new-image)) new-image
-      (empty? rules) image
+      (empty? rules) (throw (ex-info "No rule found!" {:image image}))
       :else (recur
              (rest rules)
              (test-all-moves image (first rules))))))
@@ -408,8 +408,8 @@
                         (increase-resolution ii rules)
                         (increase-resolution iii rules)
                         (increase-resolution iv rules)])))
-(def ^:constant THREES-PATTERN #"[\.#]{3}/[\.#]{3}/[\.#]{3}\s+=>\s+[\.#]{4}/[\.#]{4}/[\.#]{4}/[\.#]{4}")
-(def ^:constant TWOS-PATTERN #"[\.#]{2}/[\.#]{2}\s+=>\s+[\.#]{3}/[\.#]{3}/[\.#]{3}")
+(def ^:const THREES-PATTERN #"[\.#]{3}/[\.#]{3}/[\.#]{3}\s+=>\s+[\.#]{4}/[\.#]{4}/[\.#]{4}/[\.#]{4}")
+(def ^:const TWOS-PATTERN #"[\.#]{2}/[\.#]{2}\s+=>\s+[\.#]{3}/[\.#]{3}/[\.#]{3}")
 (s/def ::rule-two (s/and string? #(re-find TWOS-PATTERN %)))
 (s/def ::rule-three (s/and string? #(re-find THREES-PATTERN %)))
 (s/def ::twos (s/coll-of ::rule-two))
@@ -424,14 +424,13 @@
       (= 3 size) (apply-rules-quadrant image threes)
       (= 2 size) (apply-rules-quadrant image twos)
       :else (apply-rules-image image rules))))
-(def ^:constant RES-TIMES 5)
-(def ^:constant INITIAL-IMAGE '(".#." "..#" "###"))
+(def ^:const RES-TIMES 5)
+(def ^:const INITIAL-IMAGE '(".#." "..#" "###"))
 (-> "artist-rules"
     slurp
     clojure.string/split-lines
     (as-> rules-lines (reduce (fn [state el]
-                                (if (= 5 (-> el
-                                             (clojure.string/split #"/|(?:=>)")
+                                (if (= 5 (-> (clojure.string/split el #"/|(?:=>)")
                                              count))
                                   (update state ::twos conj el)
                                   (update state ::threes conj el)))
