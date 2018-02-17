@@ -424,19 +424,19 @@
                            :multiple-of-2 ::multiple-of-2
                            :multiple-of-3 ::multiple-of-3))
 (defn divide-evenly [size]
-  {:pre [(s/valid? ::valid-image-size size)]
-   :post [(s/valid? ::valid-image-size %)]}
+  ;; {:pre [(s/valid? ::valid-image-size size)]
+  ;;  :post [(s/valid? ::valid-image-size %)]}
   (cond
     (>= 3 size) size
-    (divisible-by size 2) (/ size 2)
-    (divisible-by size 3) (/ size 3)))
+    (divisible-by size 2) 2
+    (divisible-by size 3) 3))
 (defn increase-resolution [image {:keys [clips.core/twos clips.core/threes] :as rules}]
   {:pre [(s/valid? ::image image) (s/valid? ::rules rules)]
    :post [(s/valid? ::image %)]}
   (let [size (get-size image) split-size (divide-evenly size)]
     (-> (split-image image split-size)
         (apply-rules split-size rules)
-        (regroup-image split-size))))
+        regroup-image)))
 (def ^:const RES-TIMES 5)
 (def ^:const INITIAL-IMAGE '(".#." "..#" "###"))
 (-> "artist-rules"
@@ -460,19 +460,25 @@
                            (completing +)
                            image)))
 ;;17/02/2018
-(defn split-image [image size]
-  {:pre [(s/valid? ::image image) (s/valid? ::valid-image-size size)]
+(defn split-image [image split-size]
+  {:pre [(s/valid? ::image image)]
    ;; :post [(s/valid? (s/coll-of ::image) %)]
    }
-  (-> (partition size (get-rows image))
-      (as-> t (map #(map (partial partition size) %) t))
-      (as-> t (map vec t))
-      (as-> r (map #(apply map (fn ([a b c] (make-image (list a b c)))
-                                 ([a b] (make-image (list a b)))) %) r))
-      (as-> r (reduce #(into %1 %2) [] r))))
+  (if (= (get-size image) split-size)
+    (vector image)
+    (-> (partition split-size (get-rows image))
+        (as-> rows (transduce (comp
+                               (map #(map (partial partition split-size) %))
+                               (map vec)
+                               (map #(apply map
+                                            (fn ([a b c] (make-image (list a b c)))
+                                              ([a b] (make-image (list a b))))
+                                            %)))
+                              (completing into)
+                              []
+                              rows)))))
 (defn apply-rules [images size rules]
   {:pre [;; (s/valid? (s/coll-of ::image) images)
-         (s/valid? ::valid-image-size size)
          (s/valid? ::rules rules)]
    ;; :post [(s/valid? (s/every ::image) %)]
    }
@@ -481,13 +487,52 @@
           apply-rules-atomic-image
           (if (= 2 size) twos threes))
          images)))
-(defn regroup-image [images size]
-  {:pre [(s/valid? (s/coll-of ::image) images) (s/valid? ::valid-image-size size)]
+(defn calculate-images-per-side [num]
+  (cond
+    (= 1 num) num
+    (divisible-by num 2) (/ num 2)
+    (divisible-by num 3) (/ num 3)))
+(defn regroup-image [initial-images]
+  {:pre [;; (s/valid? (s/coll-of ::image) initial-images)
+         ]
    :post [(s/valid? ::image %)]}
-  (make-image '(".." "..")))
+  (let [images-per-side (calculate-images-per-side (count initial-images))]
+    (loop [rows [] images initial-images]
+      (if (empty? images)
+        (make-image rows)
+        (recur (into rows (apply (fn
+                                   ([one] one)
+                                   ([[top-left middle-left bottom-left] [top-right middle-right bottom-right]]
+                                    (vector
+                                     (concat top-left top-right)
+                                     (concat middle-left middle-right)
+                                     (concat bottom-left bottom-right)))
+                                   ([[top-left middle-left bottom-left] [top-centre middle-centre bottom-centre] [top-right middle-right bottom-right]]
+                                    (vector
+                                     (concat top-left top-centre top-right)
+                                     (concat middle-left middle-centre middle-right)
+                                     (concat bottom-left bottom-centre bottom-right))))
+                                 (take images-per-side images)))
+               (drop images-per-side images))))))
 (partition 2 (get-rows (make-image '(".." ".."))))
 (split-image (make-image '("#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##.")) 3)
-(split-image (make-image '("#.#.#." "#.#.#." "#.#.#." "#.#.#." "#.#.#." "#.#.#.")) 2)
+(split-image (make-image '("#.#.#.q" "#.#.#." "#.#.#." "#.#.#." "#.#.#." "#.#.#.")) 2)
 (-> (map (partial partition 3) '("#.#.#.##." "#.#.#.##." "#.#.#.##."))
     vec
     (as-> r (map #(make-image (list %1 %2 %3)) (get r 0) (get r 1) (get r 2))))
+(loop [times 3 rows [] list-img [[".#." "..." "###"] [".#." "..." "###"] [".#." "..." "###"]]]
+  (if (= 0 times)
+    (make-image rows)
+    (recur (dec times)
+           (into rows (apply (fn
+                               ([[top-left top-centre top-right] [middle-left middle-centre middle-right] [bottom-left bottom-centre bottom-right]]
+                                (vector
+                                 (concat top-left middle-left bottom-left)
+                                 (concat top-centre middle-centre bottom-centre)
+                                 (concat top-right middle-right bottom-right)))
+                               ([[top-left top-right] [bottom-left bottom-right]]
+                                (vector
+                                 (concat top-left bottom-left)
+                                 (concat top-right bottom-right))))
+                             (take 3 list-img)))
+           (drop 3 list-img))))
