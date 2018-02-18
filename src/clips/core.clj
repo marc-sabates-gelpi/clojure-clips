@@ -332,11 +332,11 @@
         [orig dest] (if (= 5 (count rows))
                       [(make-image (take 2 rows)) (make-image (drop 2 rows))]
                       [(make-image (take 3 rows)) (make-image (drop 3 rows))])]
-    (loop [match? false current image ops [fx fy fx rot90 fx fy fx]]
+    (loop [current image ops [fx fy fx rot90 fx fy fx]]
       (cond
-        match? (make-image dest)
+        (= current orig) (make-image dest)
         (empty? ops) nil
-        :else (recur (= current orig) ((first ops) (make-image current)) (next ops))))))
+        :else (recur ((first ops) (make-image current)) (next ops))))))
 ;; M-x cljr-hotload-dependency RET [org.clojure/tools.trace "0.7.9"]
 (use 'clojure.tools.trace)
 (trace (* 2 3))
@@ -487,11 +487,10 @@
           apply-rules-atomic-image
           (if (= 2 size) twos threes))
          images)))
+;; C-c RET h d [org.clojure/math.numeric-tower "0.0.4"]
+(require '[clojure.math.numeric-tower :as math])
 (defn calculate-images-per-side [num]
-  (cond
-    (= 1 num) num
-    (divisible-by num 2) (/ num 2)
-    (divisible-by num 3) (/ num 3)))
+  (math/sqrt num))
 (defn regroup-image [initial-images]
   {:pre [;; (s/valid? (s/coll-of ::image) initial-images)
          ]
@@ -500,19 +499,7 @@
     (loop [rows [] images initial-images]
       (if (empty? images)
         (make-image rows)
-        (recur (into rows (apply (fn
-                                   ([one] one)
-                                   ([[top-left middle-left bottom-left] [top-right middle-right bottom-right]]
-                                    (vector
-                                     (concat top-left top-right)
-                                     (concat middle-left middle-right)
-                                     (concat bottom-left bottom-right)))
-                                   ([[top-left middle-left bottom-left] [top-centre middle-centre bottom-centre] [top-right middle-right bottom-right]]
-                                    (vector
-                                     (concat top-left top-centre top-right)
-                                     (concat middle-left middle-centre middle-right)
-                                     (concat bottom-left bottom-centre bottom-right))))
-                                 (take images-per-side images)))
+        (recur (into rows (concat-images (take images-per-side images)))
                (drop images-per-side images))))))
 (partition 2 (get-rows (make-image '(".." ".."))))
 (split-image (make-image '("#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##." "#.#.#.##.")) 3)
@@ -536,3 +523,12 @@
                                  (concat top-right bottom-right))))
                              (take 3 list-img)))
            (drop 3 list-img))))
+;;18/02/2018
+(test-all-moves (make-image '(".#." "#.." "###")) "##./#.#/#.. => .#../#.##/##.#/#.#.")
+(defn concat-images [initial-images]
+  (if (= 1 (count initial-images))
+    (vec (first initial-images))
+    (loop [images initial-images concatenation []]
+      (if (empty? (first images))
+        concatenation
+        (recur (map (comp vec rest) images) (conj concatenation (reduce #(into %1 (first %2)) [] images)))))))
