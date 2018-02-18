@@ -532,3 +532,49 @@
       (if (empty? (first images))
         concatenation
         (recur (map (comp vec rest) images) (conj concatenation (reduce #(into %1 (first %2)) [] images)))))))
+;; --- Day 21: Fractal Art --- Part 2
+;; It won't be so easy, it'll need optimisation, but let's try :)
+(def ^:const RES-TIMES 18)
+;;It didn't
+(defn apply-rules-atomic-image-opt [rules image]
+  (let [match (get rules image)]
+    (if (nil? match)
+      (throw (ex-info "No rule found!" {:image image}))
+      match)))
+(def OPS-VECTOR [fx fy fx rot90 fx fy fx])
+(-> "artist-rules"
+    slurp
+    clojure.string/split-lines
+    (as-> rules-lines (reduce (fn [rules-map text-rule]
+                                (let [rule-pieces (->> (clojure.string/replace text-rule #" " "")
+                                                       (re-seq #"[\.#]+"))
+                                      num-input-pieces (if (= 5 (count rule-pieces)) 2 3)
+                                      match-image (make-image (drop num-input-pieces rule-pieces))]
+                                  (loop [current-image (make-image (take num-input-pieces rule-pieces))
+                                         ops OPS-VECTOR
+                                         updated-rules-map rules-map]
+                                    (if (empty? ops) 
+                                      updated-rules-map
+                                      (recur ((first ops) current-image)
+                                             (next ops)
+                                             (assoc
+                                              updated-rules-map
+                                              current-image
+                                              match-image))))))
+                              {}
+                              rules-lines))
+    (as-> rules (let [apply-rules-partial-opt (partial apply-rules-atomic-image-opt rules)]
+                  (loop [times RES-TIMES image (make-image INITIAL-IMAGE)]
+                    (if (= 0 times)
+                      image
+                      (recur (dec times) (let [size (get-size image)
+                                               split-size (divide-evenly size)]
+                                           (->> (split-image image split-size)
+                                                (map apply-rules-partial-opt)
+                                                regroup-image)))))))
+    get-rows
+    (as-> image (transduce (comp
+                            (map #(filter #{\#} %))
+                            (map count))
+                           (completing +)
+                           image)))
