@@ -578,3 +578,64 @@
                             (map count))
                            (completing +)
                            image)))
+;; 21/02/2018
+;; --- Day 22: Sporifica Virus --- Part 1
+(def ^:const N [-1 0])
+(def ^:const S [1 0])
+(def ^:const E [0 1])
+(def ^:const W [0 -1])
+(def ^:const DIRS [N E S W])
+(def ^:const BURSTS 10000)
+(-> "sporifica"
+    slurp
+;;  "..#
+;; #..
+;; ..."
+    clojure.string/split-lines
+    (as-> lines (hash-map :rows (count lines) :cols (frequencies (map count lines)) :lines lines)
+      (assoc lines :current-pos [(-> lines
+                                :rows
+                                (/ 2)
+                                int)
+                            (-> (get-in lines [:cols (:rows lines)])
+                                (/ 2)
+                                int)])
+      (assoc lines :infected (transduce (comp
+                                         (map-indexed (fn [row-index full-row]
+                                                         (map-indexed (fn [col-index node]
+                                                                        (if (= \# node) [row-index col-index]))
+                                                                      full-row)))
+                                         (map #(remove nil? %)))
+                                        (completing #(-> %2
+                                                         set
+                                                         (clojure.set/union %1)))
+                                        #{}
+                                        (:lines lines))))
+    (assoc :current-dir 0) ;; 0 is the index for N in the DIRS vector
+    (dissoc :rows)
+    (dissoc :cols)
+    (dissoc :lines)
+    (as-> initial-state (loop [times BURSTS state initial-state]
+                          (if (= 0 times)
+                            state
+                            (recur (dec times) (run-burst state)))))
+    :infection-times
+    prn)
+(defn run-burst [{:keys [infected current-pos] :as state}]
+  (-> (if (nil? (get infected current-pos))
+        (-> state
+            (update :infection-times (fnil inc 0))
+            (update :infected conj current-pos)
+            (update :current-dir turn-left))
+        (-> state
+            (update :infected disj current-pos)
+            (update :current-dir turn-right)))
+      (as-> updated-state
+          (let [[row-dir col-dir] (get DIRS (:current-dir updated-state))]
+            (update updated-state :current-pos (fn [[row col]]
+                                                 (vector (+ row row-dir)
+                                                         (+ col col-dir))))))))
+(defn turn [to current]
+  (mod (+ to current) 4))
+(def turn-left (partial turn -1))
+(def turn-right (partial turn 1))
