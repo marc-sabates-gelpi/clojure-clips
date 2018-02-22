@@ -585,7 +585,7 @@
 (def ^:const E [0 1])
 (def ^:const W [0 -1])
 (def ^:const DIRS [N E S W])
-(def ^:const BURSTS 10000)
+(def ^:const BURSTS 10000000)
 (-> "sporifica"
     slurp
 ;;  "..#
@@ -639,3 +639,63 @@
   (mod (+ to current) 4))
 (def turn-left (partial turn -1))
 (def turn-right (partial turn 1))
+;; 22/02/2018 -- Part 2
+(time (-> "sporifica"
+          slurp
+           ;; "..#
+;; #..
+;; ..."
+          clojure.string/split-lines
+          (as-> lines (hash-map :rows (count lines) :cols (frequencies (map count lines)) :lines lines)
+            (assoc lines :current-pos [(-> lines
+                                           :rows
+                                           (/ 2)
+                                           int)
+                                       (-> (get-in lines [:cols (:rows lines)])
+                                           (/ 2)
+                                           int)])
+            (assoc lines :infected (transduce (comp
+                                               (map-indexed (fn [row-index full-row]
+                                                              (map-indexed (fn [col-index node]
+                                                                             (if (= \# node) [row-index col-index]))
+                                                                           full-row)))
+                                               (map #(remove nil? %)))
+                                              (completing #(-> %2
+                                                               set
+                                                               (clojure.set/union %1)))
+                                              #{}
+                                              (:lines lines))))
+          (assoc :current-dir 0) ;; 0 is the index for N in the DIRS vector
+          (dissoc :rows)
+          (dissoc :cols)
+          (dissoc :lines)
+          (assoc :weakened #{})
+          (assoc :flagged #{})
+          (as-> initial-state (loop [times BURSTS state initial-state]
+                                (if (= 0 times)
+                                  state
+                                  (recur (dec times) (run-burst-evolution state)))))
+          :infection-times
+          prn))
+(defn run-burst-evolution [{:keys [infected weakened flagged current-pos] :as state}]
+  (-> (cond
+        (not (nil? (get infected current-pos))) (-> state
+                                                    (update :infected disj current-pos)
+                                                    (update :flagged conj current-pos)
+                                                    (update :current-dir turn-right))
+        (not (nil? (get weakened current-pos))) (-> state
+                                                    (update :infection-times (fnil inc 0))
+                                                    (update :weakened disj current-pos)
+                                                    (update :infected conj current-pos))
+        (not (nil? (get flagged current-pos))) (-> state
+                                                    (update :flagged disj current-pos)
+                                                    (update :current-dir turn-reverse))
+        :else (-> state
+                  (update :weakened conj current-pos)
+                  (update :current-dir turn-left)))
+      (as-> updated-state
+          (let [[row-dir col-dir] (get DIRS (:current-dir updated-state))]
+            (update updated-state :current-pos (fn [[row col]]
+                                                 (vector (+ row row-dir)
+                                                         (+ col col-dir))))))))
+(def turn-reverse (partial turn 2))
