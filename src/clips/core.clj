@@ -699,3 +699,121 @@
                                                  (vector (+ row row-dir)
                                                          (+ col col-dir))))))))
 (def turn-reverse (partial turn 2))
+;; Session 23/02/2018
+;; --- Day 23: Coprocessor Conflagration --- Part 1
+(defn str->num-or-register [str]
+  (let [parsed (read-string str)]
+    (if (number? parsed)
+      parsed
+      (keyword parsed))))
+(defn get-val [regs val-or-reg]
+  (if (keyword? val-or-reg)
+    (get regs val-or-reg 0)
+    val-or-reg))completing
+(defmulti exec-next (fn [{:keys [pc instructions]}] (:instr (get instructions pc))))
+(defmethod exec-next :set [{:keys [pc instructions registers] :as state}]
+  (let [current-instr (get instructions pc)]
+    (-> state
+        (assoc-in [:registers (:p1 current-instr)] (get-val registers (:p2 current-instr)))
+        (update :pc inc)
+        (update-in [:instr-count :set] (fnil inc 0)))))
+(defmethod exec-next :sub [{:keys [instructions pc registers] :as state}]
+  (let [current-instr (get instructions pc)]
+    (-> state
+        (update-in [:registers (:p1 current-instr)] (fnil - 0) (get-val registers (:p2 current-instr)))
+        (update :pc inc)
+        (update-in [:instr-count :sub] (fnil inc 0)))))
+(defmethod exec-next :mul [{:keys [instructions pc registers] :as state}]
+  (let [current-instr (get instructions pc)]
+    (-> state
+        (update-in [:registers (:p1 current-instr)] (fnil * 0) (get-val registers (:p2 current-instr)))
+        (update :pc inc)
+        (update-in [:instr-count :mul] (fnil inc 0)))))
+(defmethod exec-next :jnz [{:keys [instructions pc registers] :as state}]
+  (let [current-instr (get instructions pc)]
+    (-> (if (not= 0 (get-val registers (:p1 current-instr)))
+          (update state :pc + (get-val registers (:p2 current-instr)))
+          (update state :pc inc))
+        (update-in [:instr-count :jnz] (fnil inc 0)))))
+(defmethod exec-next :default [state] (assoc state :stop true))
+(defn run-coprocessor-instr [initial-state]
+  (loop [state initial-state]
+    (if (:stop state)
+      state
+      (recur (exec-next state)))))
+(->> "coprocessor"
+    slurp
+    (clojure.string/split-lines)
+    (into []
+          (comp
+           (map #(clojure.string/split % #" "))
+           (map (fn [[instr p1 p2]]
+                  (hash-map :instr (keyword instr) :p1 (str->num-or-register p1) :p2 (str->num-or-register p2))))))
+    (hash-map :pc 0 :registers {} :instr-count {} :instructions)
+    run-coprocessor-instr
+    :mul
+    prn)
+(clojure.string/split "jnz 1 -23" #" ")
+((fn [[a b c]] (prn a b c)) '(:a :b :c))
+(inc nil)
+;; -- Part 2
+;; Attempt 1: Let's see if ther are infinite loops
+(defn run-coprocessor-instr-interrupt-cycles [initial-state]
+  (loop [state initial-state
+         times COPROC-TIMES
+         max-pc -1
+         internal-states #{}]
+    (let [_ (some-> (resolve 'COPROC-DEBUG)
+                    deref
+                    (#(if % (clojure.pprint/pprint (get state :registers)))))
+          current-internal-state (-> state (dissoc :instr-count) (dissoc :instructions))]
+      (cond
+        (:stop state) (assoc state :exit-code :end-program)
+        (not (nil? (get internal-states current-internal-state))) (-> state
+                                                                      (assoc :exit-code :cycle)
+                                                                      (assoc :cycle-state current-internal-state))
+        (= times 0) (-> state
+                        (assoc :exit-code :time-out)
+                        (assoc :max-pc max-pc))
+        :else (recur
+               (exec-next state)
+               (dec times)
+               (max (:pc state) max-pc)
+               (conj internal-states current-internal-state))))))
+(->> "coprocessor"
+    slurp
+    (clojure.string/split-lines)
+    (into []
+          (comp
+           (map #(clojure.string/split % #" "))
+           (map (fn [[instr p1 p2]]
+                  (hash-map :instr (keyword instr) :p1 (str->num-or-register p1) :p2 (str->num-or-register p2))))))
+    (hash-map :pc 0 :registers {:a 0} :instr-count {} :instructions)
+    run-coprocessor-instr-interrupt-cycles
+    (#(dissoc % :instructions))
+    prn
+    )
+;; Attempt 2: Let's see if it is possible to see what the program is doing checking its state
+(def ^:const COPROC-DEBUG true)
+@(resolve 'COPROC-DEBUG)
+(def ^:const COPROC-TIMES 100000)
+;; Attempt 3: # non-primes on 109300, 109317, 109334, ..., 109300 + n*17 < 126300
+(defn make-lazy-multiples-of [factor]
+  (fn lazy-generator [seed]
+    (lazy-seq
+     (cons seed
+           (lazy-seq (lazy-generator (+ seed factor)))))))
+(take 3 ((make-lazy-multiples-of 17) 109300))
+(defn prime? [n]
+  (and
+   (not= n 1)
+   (= ((fn smallest-divisor [n test]
+         (cond
+           (> (* test test) n) n
+           (= (mod n test) 0) test
+           :else (smallest-divisor n (inc test)))) n 2) n)))
+(count (sequence (comp
+                  (take-while #(< % 126300))
+                  (remove prime?))
+                 ((make-lazy-multiples-of 17) 109300)))
+;;910 Too low!
