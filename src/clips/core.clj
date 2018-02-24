@@ -869,3 +869,8 @@
            (take-while #(not= % 126300))
            (remove prime?))
           ((make-lazy-multiples-of 17) 109300))
+;; Aaaah, I seeeee! It needs to run through [109300, 126300] and I was running it through [109300, 126300)
+(count (sequence (comp
+                  (take-while #(<= % 126300))
+                  (remove prime?))
+                 ((make-lazy-multiples-of 17) 109300)))
