@@ -814,6 +814,58 @@
            :else (smallest-divisor n (inc test)))) n 2) n)))
 (count (sequence (comp
                   (take-while #(< % 126300))
-                  (remove prime?))
+                  ;;(remove prime?)
+                  )
                  ((make-lazy-multiples-of 17) 109300)))
 ;;910 Too low!
+;;24/02/2018
+(/ (- 126300 109300) 17)
+(count (sequence (comp
+                  (take-while #(not= % 126300))
+                  (remove prime?))
+                 ((make-lazy-multiples-of 17) 109300)))
+(count (sequence (comp
+                  (take-while #(not= % (+ 10 (* 10 17))))
+                  (remove prime?)
+                  )
+                 ((make-lazy-multiples-of 17) 10)))
+;;desperate measures
+(def ^:const B 109300
+  ;;10
+  )
+(def ^:const C 126300
+  ;;(+ B (* 1000 17))
+  )
+(time (let [c C]
+        (loop [b B h 0]
+          (if (= b c)
+            h
+            (recur (+ b 17) (loop [d 2 f 1]
+                              (cond
+                                (= 0 f) (inc h)
+                                (= d b) h
+                                :else (recur (inc d) (loop [e 2 ff f]
+                                                       (if (or (= 0 ff) (= e b))
+                                                         ff
+                                                         (recur (inc e) (if (= b (* d e)) 0 1))))))))))))
+;; C-c RET h d [org.clojure/math.numeric-tower "0.0.4"]
+(require '[clojure.math.numeric-tower :as math])
+(time (let [c C]
+        (loop [b B h 0]
+          (if (= b c)
+            h
+            (recur (+ b 17) (loop [d 2 f 1]
+                              (cond
+                                (= 0 f) (inc h)
+                                (> (sq d) b) h
+                                :else (recur (inc d) (loop [e d ff f]
+                                                       (if (or (= 0 ff) (> (* d e) b))
+                                                         ff
+                                                         (recur (inc e) (if (= b (* d e)) 0 1))))))))))))
+;; 910!
+(def sq (memoize (fn [n] (* n n))))
+;; The answer was 911!!!!!!! Why?!
+(sequence (comp
+           (take-while #(not= % 126300))
+           (remove prime?))
+          ((make-lazy-multiples-of 17) 109300))
