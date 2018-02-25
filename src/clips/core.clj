@@ -874,3 +874,83 @@
                   (take-while #(<= % 126300))
                   (remove prime?))
                  ((make-lazy-multiples-of 17) 109300)))
+;;25/02/2018
+;; --- Day 24: Electromagnetic Moat --- Part 1
+(defn make-bcomp [a b]
+  {:a a :b b})
+(defn a [bcomp]
+  (:a bcomp))
+(defn b [bcomp]
+  (:b bcomp))
+(defn compat? [n bcomp]
+  (or (= n (a bcomp)) (= n (b bcomp))))
+(defn possible-bridges [bcomps port path]
+  (loop [candidates (filter (partial compat? port) bcomps) bridges '()]
+    (if (empty? candidates)
+      (conj bridges path)
+      (let [current (first candidates)]
+        (recur
+         (rest candidates)
+         (into bridges (possible-bridges
+                        (disj bcomps current)
+                        (other-port current port)
+                        (conj path current))))))))
+(defn other-port [bcomp port]
+  (let [a (a bcomp) b (b bcomp)]
+    (if (= a port)
+      b
+      a)))
+(defn get-strength [bridge]
+  (hash-map :bridge bridge :strength (reduce #(+ %1 (a %2) (b %2)) 0 bridge)))
+(-> "bridge-components"
+ slurp
+ ;; "0/2
+;; 2/2
+;; 2/3
+;; 3/4
+;; 3/5
+;; 0/1
+;; 10/1
+;; 9/10"
+    clojure.string/split-lines
+    (as-> lines (into #{} (comp
+                           (map #(re-seq #"[0-9]+" %))
+                           (map #(map read-string %))
+                           (map (fn [[a b]] (make-bcomp a b))))
+                      lines))
+    (possible-bridges 0 '())
+    (as-> bridges
+        (remove empty? bridges)
+      (map get-strength bridges)
+      (sort-by :strength bridges))
+    last)
+(re-find #"[0-9]+" "99 67")
+(re-seq #"[0-9]+" "99 67")
+(conj '() (list (list :a :b) (list :b :c)))
+(into '() (list (list :a :b) (list :b :c)))
+;; -- Part 2
+(-> "bridge-components"
+ slurp
+ ;; "0/2
+;; 2/2
+;; 2/3
+;; 3/4
+;; 3/5
+;; 0/1
+;; 10/1
+;; 9/10"
+    clojure.string/split-lines
+    (as-> lines (into #{} (comp
+                           (map #(re-seq #"[0-9]+" %))
+                           (map #(map read-string %))
+                           (map (fn [[a b]] (make-bcomp a b))))
+                      lines))
+    (possible-bridges 0 '())
+    (as-> bridges
+        (remove empty? bridges)
+      (sort-by count bridges)
+      (let [max-length (-> bridges last count)]
+        (filter #(= max-length (count %)) bridges))
+      (map get-strength bridges)
+      (sort-by :strength bridges))
+    last)
