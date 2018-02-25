@@ -954,3 +954,85 @@
       (map get-strength bridges)
       (sort-by :strength bridges))
     last)
+;; --- Day 25: The Halting Problem --- Part 1
+(def ^:const STATE {:initial-state :a
+                    :diag-checksum 12964419
+                    :states {:a {0 {:output 1
+                                    :dir :right
+                                    :next-state :b}
+                                 1 {:output 0
+                                    :dir :right
+                                    :next-state :f}}
+                             :b {0 {:output 0
+                                    :dir :left
+                                    :next-state :b}
+                                 1 {:output 1
+                                    :dir :left
+                                    :next-state :c}}
+                             :c {0 {:output 1
+                                    :dir :left
+                                    :next-state :d}
+                                 1 {:output 0
+                                    :dir :right
+                                    :next-state :c}}
+                             :d {0 {:output 1
+                                    :dir :left
+                                    :next-state :e}
+                                 1 {:output 1
+                                    :dir :right
+                                    :next-state :a}}
+                             :e {0 {:output 1
+                                    :dir :left
+                                    :next-state :f}
+                                 1 {:output 0
+                                    :dir :left
+                                    :next-state :d}}
+                             :f {0 {:output 1
+                                    :dir :right
+                                    :next-state :a}
+                                 1 {:output 0
+                                    :dir :left
+                                    :next-state :e}}}})
+(loop [times (:diag-checksum STATE)
+       machine-state {:state (:initial-state STATE) :tape {:pos 0 :cont [0]}}]
+  (if (= 0 times)
+    (reduce + (get-in machine-state [:tape :cont]))
+    (recur (dec times) (turing-step machine-state STATE))))
+(defn move-right [{:keys [cont pos] :as tape}]
+  (as-> tape updated-tape
+    (update updated-tape :pos inc)
+    (if (nil? (get cont (inc pos)))
+        (update updated-tape :cont conj 0)
+        updated-tape)))
+(defn move-left [{:keys [cont pos] :as tape}]
+  (if (= 0 pos)
+    (assoc tape :cont (-> cont
+                          sequence
+                          (conj 0)
+                          vec))
+    (update tape :pos dec)))
+(defn get-current-on-tape [{:keys [cont pos] :as tape}]
+  (get cont pos))
+(defn turing-step [{{:keys [cont pos]} :tape :keys [state tape] :as current} {:keys [states]}]
+  (let [c-val (get-current-on-tape tape)
+        c-state (get states state)
+        c-action (get c-state c-val)]
+    (-> current
+        (assoc :state (:next-state c-action))
+        (assoc :tape (as-> tape updated-tape
+                       (assoc-in updated-tape [:cont pos] (:output c-action))
+                       (if (= :left (:dir c-action))
+                         (move-left updated-tape)
+                         (move-right updated-tape)))))))
+(cons :b [:a])
+(cons :b '(:a))
+(-> {:pos 0 :cont [:a :b :c]}
+    move-left
+    move-left
+    move-right
+    move-left
+    move-right
+    move-right
+    move-right
+    move-right
+    move-right)
