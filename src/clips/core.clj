@@ -1036,3 +1036,72 @@
     move-right
     move-right
     move-right)
+(into '() "string")
+(into [] "string")
+(into #{} "string")
+(into {} (repeatedly 4 #(vector (rand-int 100) (rand-int 100))))
+(into {} '((:a 1) (:b 2))) ;; hmm it needs a vector [k v]
+(into {} (repeatedly 4 #(vector (rand-int 100) (rand-int 100) (rand-int 100)))) ;; and it needs to be excatly [k v] nothing else
+;;26/02/2018
+(read-line)
+(take 8 (cycle [1 2 3 4]))
+(-> "0/2
+2/2
+2/3
+3/4
+3/5
+0/1
+10/1
+9/10"
+    clojure.string/split-lines
+    (as-> lines (into #{} (comp
+                           (map #(re-seq #"[0-9]+" %))
+                           (map #(map read-string %))
+                           (map (fn [[a b]] (make-bcomp a b))))
+                      lines))
+    (possible-bridges 0 '())
+    (as-> bridges (apply max-key (fn [elem] (reduce #(+ %1 (a %2) (b %2)) 0 elem)) bridges)))
+;;27/02/2018
+;;#69 Merge with a Function
+(defn my-merge-with [f & maps]
+  (reduce (fn [state elem]
+            (into state (reduce
+                         (fn [inner-state [k v]]
+                           (let [existing-val (get state k)]
+                             (if (some? existing-val)
+                               (assoc inner-state k (f existing-val v))
+                               (assoc inner-state k v))))
+                         {}
+                         elem)))
+          {}
+          maps))
+(= (my-merge-with * {:a 2, :b 3, :c 4} {:a 2} {:b 2} {:c 5})
+   {:a 4, :b 6, :c 20})
+
+(= (my-merge-with - {1 10, 2 20} {1 3, 2 10, 3 15})
+   {1 7, 2 10, 3 15})
+
+(= (my-merge-with concat {:a [3], :b [6]} {:a [4 5], :c [8 9]} {:b [7]})
+   {:a [3 4 5], :b [6 7], :c [8 9]})
+
+;;#70 Word sorting
+(sort '("a" "bb"))
+(compare "a" "bb")
+(compare "Have" "a")
+(compare "have" "a")
+(compare "a" "A")
+(compare "A" "a")
+(defn ms [s]
+  (as-> s st
+    (clojure.string/replace st #"[\.!,;]" "")
+    (clojure.string/split st #" ")
+    (sort #(compare (clojure.string/lower-case %1) (clojure.string/lower-case %2)) st)))
+
+(= (ms  "Have a nice day.")
+   ["a" "day" "Have" "nice"])
+
+(= (ms  "Clojure is a fun language!")
+   ["a" "Clojure" "fun" "is" "language"])
+
+(= (ms  "Fools fall for foolish follies.")
+   ["fall" "follies" "foolish" "Fools" "for"])
