@@ -1105,3 +1105,90 @@
 
 (= (ms  "Fools fall for foolish follies.")
    ["fall" "follies" "foolish" "Fools" "for"])
+;;28/02/2018
+;;#73 Analyze a Tic-Tac-Toe Board
+(vec (repeat w (vec (repeat h nil))))
+(count (filter #(get-in board %) (neighbours loc)))
+(let [w (count board)
+      h (count (first board))]
+  (loop [new-board board x 0 y 0]
+    (cond
+      (>= x w) new-board
+      (>= y h) (recur new-board (inc x) 0)
+      :else
+      (let [new-liveness
+            (case (count-neighbours board [x y])
+              2 (get-in board [x y])
+              3 :on
+              nil)]
+        (recur (assoc-in new-board [x y] new-liveness) x (inc y))))))
+(or 2 1)
+(or false 1)
+(or nil 1)
+(defn window
+"Returns a lazy sequence of 3-item windows centered around each item of coll."
+  [coll]
+  (partition 3 1 (concat [nil] coll [nil])))
+(defn cell-block
+"Creates a sequences of 3x3 windows from a triple of 3 sequences."
+  [[left mid right]]
+  (window (map vector
+               (or left (repeat nil))
+               mid
+               (or right (repeat nil)))))
+(apply distinct? '(:x :o :e))
+(apply distinct? '(:o :o :o))
+(remove #(apply distinct? %) '((:x :o :e)))
+(remove #(apply distinct? %) '((:o :o :o)))
+(defn analyze [board]
+  (-> '()
+      (into board)
+      (into (apply map (fn [x y z] (list x y z)) board))
+      (into (map (fn [[a b c]] (list (get-in board a)
+                                     (get-in board b)
+                                     (get-in board c)))
+                 '(([0 0] [1 1] [2 2]) ([0 2] [1 1] [2 0]))))
+      (as-> lines
+          (filter #(= 1 (count (frequencies %))) lines)
+        (filter #(not-any? #{:e} %) lines))
+      ffirst))
+(ffirst '((:e :e :e)))
+(remove #(#{:e} %) '((:e :e :e)))
+(not-any? #{:e} '(:e :e :e))
+(not-any? #{:e} '(:x :o :o))
+(map #(apply distinct? %) '((:e :o :e) (:o :o :o) (:e :e :o) (:e :o :o) (:o :o :e) [:e :o :o] [:o :o :e] [:o :e :e]))
+(apply distinct? (list :o :o :o))
+(apply distinct? (list :e :o :e))
+(apply distinct? '(:o :o :o))
+(apply distinct? '(:e :o :e))
+(analyze [[:o :e :e] [:o :o :e] [:e :o :o]])
+(analyze [[:o :e :e] [:e :e :e] [:e :e :e]])
+(= nil (analyze [[:e :e :e]
+            [:e :e :e]
+            [:e :e :e]]))
+
+(= :x (analyze [[:x :e :o]
+           [:x :e :e]
+           [:x :e :o]]))
+
+(= :o (analyze [[:e :x :e]
+           [:o :o :o]
+           [:x :e :x]]))
+
+(= nil (analyze [[:x :e :o]
+            [:x :x :e]
+            [:o :x :o]]))
+
+(= :x (analyze [[:x :e :e]
+           [:o :x :e]
+           [:o :e :x]]))
+
+(= :o (analyze [[:x :e :o]
+           [:x :o :e]
+           [:o :e :x]]))
+
+(= nil (analyze [[:x :o :x]
+            [:x :o :x]
+            [:o :x :o]]))
+((fn [lines] (filter #(= 1 (count (frequencies %))) lines)))
+((fn [lines] (filter #(not-any? #{:e} %) lines)))
