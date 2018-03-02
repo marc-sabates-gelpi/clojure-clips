@@ -94,3 +94,75 @@ dorun
                      ((fn [nums] (map str nums)))
                      ((fn [nums] (interpose "," nums)))
                      ((fn [nums] (reduce str nums)))))))
+;;02/03/2018
+(def k (keyword "two words"))
+(str k)
+(def m {k "value"})
+(prn m)
+(get m :two\spacewords)
+(reduce + '(nil))
+(reduce (fnil + 0) [nil])
+(+ nil)
+(reduce + (map identity [nil]))
+;;#75 Euler's Totient Function
+(defn gcd [a b]
+  (letfn [(gcd- [a b]
+             (let [modulo (mod a b)]
+               (if (= modulo 0)
+                 b
+                 (gcd- a modulo))))]
+    (gcd- (max a b) (min a b))))
+(gcd 3 5)
+(defn eulers-totient [n]
+  (letfn [(gcd [a b]
+            (letfn [(gcd- [a b]
+                      (let [modulo (mod a b)]
+                        (if (= modulo 0)
+                          b
+                          (gcd- a modulo))))]
+              (gcd- (max a b) (min a b))))
+          (co-prime? [a b]
+            (= 1 (gcd a b)))]
+    (cond
+      (= 1 n) 1
+      :else (count (filter (partial co-prime? n) (range 1 n))))))
+(eulers-totient 1)
+	
+(= (eulers-totient 1) 1)
+(= (eulers-totient 10) (count '(1 3 7 9)) 4)
+(= (eulers-totient 40) 16)
+(= (eulers-totient 99) 60)
+
+(defn co-prime? [a b]
+            (= 1 (gcd a b)))
+(count (map (partial (partial gcd 40)) (range 1 40)))
+deref
+future
+iterate
+(let [m {:a [\a] :b [\b] :another-a [\a] :a-bis [\a] :c [\c]}] (clojure.set/index m (keys m)))
+(let [m {:a [\a] :b [\b] :another-a [\a] :a-bis [\a] :c [\c]}] (clojure.set/index m [key]))
+(let [m #{{:a [\a]} {:b [\b]} {:another-a [\a]} {:a-bis [\a]} {:c [\c]}}] (clojure.set/index m [key]))
+(gcd 40 6) ;; => 4! This is completely wrong! mu gcd is wrong!
+(defn gcd [a b]
+  (letfn [(gcd- [a b]
+             (if (= b 0)
+               a
+               (gcd- b (mod a b))))]
+    (gcd- (max a b) (min a b))))
+(gcd 40 6) ;; => 2! Ahhh! That's better!
+(defn eulers-totient [n]
+  (letfn [(gcd [a b]
+            (letfn [(gcd- [a b]
+                      (if (= b 0)
+                        a
+                        (gcd- b (mod a b))))]
+              (gcd- (max a b) (min a b))))
+          (co-prime? [a b]
+            (= 1 (gcd a b)))]
+    (cond
+      (= 1 n) 1
+      :else (count (filter (partial co-prime? n) (range 1 n))))))
+(= (eulers-totient 1) 1)
+(= (eulers-totient 10) (count '(1 3 7 9)) 4)
+(= (eulers-totient 40) 16)
+(= (eulers-totient 99) 60)
