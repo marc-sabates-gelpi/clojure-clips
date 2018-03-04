@@ -166,3 +166,97 @@ iterate
 (= (eulers-totient 10) (count '(1 3 7 9)) 4)
 (= (eulers-totient 40) 16)
 (= (eulers-totient 99) 60)
+;;03/03/2018
+;;Should throw an error (more than 1 variadic)
+(fn ewe
+  ([] '())
+  ([a & args] (into '(a) args))
+  ([a b & args] (into '(a b) args)))
+;;Condition-map is the first expr iff there is 1 or more expr as body
+(fn ewe [a b]
+  {:pre [(some? a) (some? b)]
+   :post [(some? %)]}) ;; => CompilerException java.lang.RuntimeException: Unable to resolve symbol: % in this context
+(defn ewe [a b]
+  {:pre [(some? a) (some? b)]
+   :post [(some? %)]}
+  nil)
+(ewe nil 1)
+(ewe 1 2)
+(defn ewe [a b]
+  {:pre [(some? a) (some? b)]
+   :post [(some? %)]}
+  (str a b))
+(ewe 1 2)
+;;Condition-map keys are optional?
+(defn ewe [a]
+  {[(some? a)]
+   [(some? %)]}
+  a)
+(ewe nil) ;; Ah it meant either entryset is optional!
+(defn ewe [a]
+  {:pre [(some? a)]}
+  a)
+(ewe nil)
+;;Can the condition map be unordered?
+(defn ewe [a]
+  {:post [(some? %)]
+   :pre [(some? a)]}
+  a)
+(ewe nil)
+;;Condition-map can be in the fn metadata arglist?
+(meta #'ewe)
+(defn ^{:arglist {:pre [(some? a)] :post [(some? %)]}} ewe [a] a) => ?!?!
+;;fn defines a recursion point at the top & loop does as well
+(defn ewe [a]
+  (loop [aa a bb a]
+    (cond
+      (= 0 aa) (recur (dec aa))
+      (= 0 (mod aa 2)) (recur (dec aa) (dec bb))
+      :else :end))) ;; => Mismatched argument count to recur, expected: 2 args, got: 1
+;; the recursion points must be mutualy exclusive
+(defn ewe [a]
+  (if (= 0 a)
+    :end
+    (recur (dec a))))
+(ewe 4)
+(defn ewe [a]
+  (loop [aa a bb (rand-int 10)]
+    (if (or (= 0 aa) (= 0 bb))
+      :end
+      (recur (dec aa) (dec bb)))))
+(ewe 4)
+;;last expr in a catch expr is the new return value
+(defn ewe []
+  (try
+    (throw (Exception. "My exception"))
+    (catch Exception e (do
+                         (prn "Exception!")
+                         ##Inf))))
+(ewe)
+;;Does finally expr become the new return value or it is only executed for side effects?
+(defn ewe []
+  (try
+    (throw (Exception. "My exception"))
+    (catch Exception e (do
+                         (prn "Exception!")
+                         ##Inf))
+    (finally ##NaN)))
+(ewe) ;; The answer is NO, finally is not the return value!
+;;Destructuring treats vector literal abstractedly?
+(defn ewe [[a b]]
+  (list a b))
+(ewe '(1 2))
+(ewe [1 2])
+(ewe "12")
+(ewe {1 1 2 2}) ;; => UnsupportedOperationException nth not supported on this typ
+(ewe #{1 2}) ;; => idem
+;;...and map literal abstractedly?
+(defn ewe [{:keys [one two]}]
+  (list one two))
+(ewe [:one :two]) ;; => (nil nil)
+(ewe {:one 1 :two 2})
+(ewe #{:one :two})
+(defn ewe [{zero 0 one 1}]
+  (list zero one))
+(ewe [4 5])
+(ewe {0 6 1 9})
