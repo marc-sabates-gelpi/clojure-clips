@@ -260,3 +260,88 @@ iterate
   (list zero one))
 (ewe [4 5])
 (ewe {0 6 1 9})
+;;04/03/2018
+;; from emccue @ clojurians
+(defn convert-to-class [^Class class clojure-obj]
+  "Converts the clojure object to the given POJO class using jackson"
+  (let [^String json-str (to-json-str clojure-obj)
+        mapper (doto (ObjectMapper.))]
+    (.readValue mapper json-str class)))
+;;refactor
+(defn convert-to-class [^Class class clojure-obj]
+  "Converts the clojure object to the given POJO class using jackson"
+  (let [^String json-str (to-json-str clojure-obj)]
+    (doto (ObjectMapper.) (.readValue json-str class))))
+
+;;06/03/2018
+;;--- Day 1: No Time for a Taxicab --- Part 1
+
+(def ^:const N [0 1])
+(def ^:const E [1 0])
+(def ^:const S [0 -1])
+(def ^:const W [-1 0])
+(def ^:const HQ-RULES #:hq-rule{{:orient N :instr :R} E
+                                {:orient S :instr :L} E
+                                {:orient N :instr :L} W
+                                {:orient S :instr :R} W
+                                {:orient E :instr :R} S
+                                {:orient W :instr :L} S
+                                {:orient E :instr :L} N
+                                {:orient W :instr :R} N})
+(defn mult [[x y] n]
+  [(* x n) (* y n)])
+(-> "resources/aoc2016/hq-instructions"
+    slurp
+    (clojure.string/replace #"\s" "")
+    (as-> s (re-seq #"([LR])([0-9]+)" s))
+    (as-> instrs
+        (map (fn [[_ dir steps]]
+               (hash-map :instr (keyword dir) :steps (read-string steps)))
+             instrs)
+      (loop [state {:dir N :intermediate-pos [[0 0]]} updated-instrs instrs]
+        (if (empty? updated-instrs)
+          state
+          (recur (let [current-instr (first updated-instrs)
+                       current-dir (:dir state)
+                       next-dir (get HQ-RULES {:orient current-dir :instr (:instr current-instr)})]
+                   (-> state
+                       (assoc :dir next-dir)
+                       (update :intermediate-pos conj (mult next-dir (:steps current-instr)))))
+                 (rest updated-instrs))))
+      (reduce (fn [[res-x res-y] [elem-x elem-y]]
+                [(+ res-x elem-x)
+                 (+ res-y elem-y)]) (:intermediate-pos instrs))
+      (+ (math/abs (get instrs 0)) (math/abs (get instrs 1)))))
+;; -- Part 2
+(-> "resources/aoc2016/hq-instructions"
+    slurp
+    (clojure.string/replace #"\s" "")
+    (as-> s (re-seq #"([LR])([0-9]+)" s))
+    (as-> instrs
+        (map (fn [[_ dir steps]]
+               (hash-map :instr (keyword dir) :steps (read-string steps)))
+             instrs)
+      (loop [state {:dir N :intermediate-pos [[0 0]]} updated-instrs instrs]
+        (if (empty? updated-instrs)
+          (:intermediate-pos state)
+          (recur (let [current-instr (first updated-instrs)
+                       current-dir (:dir state)
+                       next-dir (get HQ-RULES {:orient current-dir :instr (:instr current-instr)})]
+                   (-> state
+                       (assoc :dir next-dir)
+                       (update :intermediate-pos conj (mult next-dir (:steps current-instr)))))
+                 (rest updated-instrs))))
+      (reduce (fn [coll [x y]]
+                (let [[last-x last-y] (last coll)]
+                  (conj coll [((fnil + 0) last-x x) ((fnil + 0) last-y y)])))
+              []
+              instrs)
+      ;; return first repeated
+      ;; (let [freq (frequencies instrs)]
+      ;;   (keep #(> 1 (get freq %)) instrs))
+      ;; (+ (math/abs (get instrs 0)) (math/abs (get instrs 1)))
+      ))
+(let [coll [[1 1] [0 1]]] (filter #(some #{%} coll) coll))
+(some #{1} '(0 1))
+(ffirst (frequencies [[1 1] [0 1]]))
+;; refactor is the next task
