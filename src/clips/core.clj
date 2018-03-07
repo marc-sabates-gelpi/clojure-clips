@@ -313,11 +313,12 @@ iterate
                  (+ res-y elem-y)]) (:intermediate-pos instrs))
       (+ (math/abs (get instrs 0)) (math/abs (get instrs 1)))))
 ;; -- Part 2
-(-> "resources/aoc2016/hq-instructions"
-    slurp
+(-> ;; "resources/aoc2016/hq-instructions"
+ ;; slurp
+ "R8, R4, R4, R8"
     (clojure.string/replace #"\s" "")
     (as-> s (re-seq #"([LR])([0-9]+)" s))
-    (as-> instrs
+    (as-> instrs 
         (map (fn [[_ dir steps]]
                (hash-map :instr (keyword dir) :steps (read-string steps)))
              instrs)
@@ -336,12 +337,47 @@ iterate
                   (conj coll [((fnil + 0) last-x x) ((fnil + 0) last-y y)])))
               []
               instrs)
-      ;; return first repeated
-      ;; (let [freq (frequencies instrs)]
-      ;;   (keep #(> 1 (get freq %)) instrs))
+      (loop [found nil [current & remaining] instrs]
+        (if (or (some? found) (nil? current))
+          found
+          (recur
+           (if (some #{current} remaining)
+             current
+             nil)
+           remaining)))
       ;; (+ (math/abs (get instrs 0)) (math/abs (get instrs 1)))
       ))
 (let [coll [[1 1] [0 1]]] (filter #(some #{%} coll) coll))
 (some #{1} '(0 1))
 (ffirst (frequencies [[1 1] [0 1]]))
-;; refactor is the next task
+;; -- Part 2 requires something completely different, I'll be refactoring Part 1 instead
+(defn intersection-from-last []
+  (fn [xf]
+    (let [last-dir (volatile! N)]
+      (fn
+        ([] (xf))
+        ([result] (xf result))
+        ([result {:keys [instr steps]}]
+         (let [prior-dir @last-dir
+               next-dir (get HQ-RULES {:orient prior-dir :instr instr})]
+            (vreset! last-dir next-dir)
+            (xf result (mult next-dir steps))))))))
+
+(-> "resources/aoc2016/hq-instructions"
+    slurp
+    (clojure.string/replace #"\s" "")
+    (as-> input
+      (re-seq #"([LR])([0-9]+)" input)
+      (transduce (comp
+                  (map (fn [[_ dir steps]]
+                         (hash-map
+                          :instr (keyword dir)
+                          :steps (read-string steps))))
+                  (intersection-from-last))
+                 (fn
+                   ([] [0 0]) ;; init transduce
+                   ([[x y]] (+ (math/abs x) (math/abs y))) ;; last transduce step
+                   ([[acc-x acc-y] [elem-x elem-y]] ;; regular transduce step
+                    [(+ acc-x elem-x)
+                     (+ acc-y elem-y)]))
+                 input)))
