@@ -381,3 +381,80 @@ iterate
                     [(+ acc-x elem-x)
                      (+ acc-y elem-y)]))
                  input)))
+;;08/03/2018
+;; AoC 2016 - Day 1 - Part 2
+(defn vertex-from-last []
+  (fn [xf]
+    (let [last-pos (volatile! [0 0])]
+      (fn
+        ([] (xf))
+        ([result] (xf result))
+        ([result [x y :as diff]]
+         (let [[prior-x prior-y] @last-pos
+               next-pos [(+ x prior-x) (+ y prior-y)]]
+           (vreset! last-pos next-pos)
+           (xf result next-pos)))))))
+(defn my-range [a b]
+  (let [step-f (if (> a b) dec inc)]
+    (take (math/abs (- a b)) (drop 1 (iterate step-f a)))))
+(defn fill-gaps-from-last []
+  (fn [xf]
+    (let [last-pos (volatile! [0 0])
+          started (volatile! false)]
+      (fn
+        ([] (xf))
+        ([result] (xf result))
+        ([result [x y :as pos]]
+         (let [[prior-x prior-y :as prior-pos] @last-pos
+               new-positions (if (= x prior-x)
+                               (for [yy (my-range prior-y y)]
+                                 [x yy])
+                               (for [xx (my-range prior-x x)]
+                                 [xx y]))]
+           (vreset! last-pos pos)
+           (if @started
+             (xf result new-positions)
+             (do
+               (vreset! started true)
+               (xf [[0 0]] new-positions)))))))))
+(-> "resources/aoc2016/hq-instructions"
+    slurp
+    ;; "R8, R4, R4, R8"
+    (clojure.string/replace #"\s" "")
+    (as-> input
+      (re-seq #"([LR])([0-9]+)" input)
+      (transduce (comp
+                  (map (fn [[_ dir steps]]
+                         (hash-map
+                          :instr (keyword dir)
+                          :steps (read-string steps))))
+                  (intersection-from-last)
+                  (vertex-from-last)
+                  (fill-gaps-from-last))
+                 (fn
+                   ([] [])
+                   ([result] (identity result))
+                   ([result input]
+                    (into result input)))
+                 input)
+      (reduce (fn [{:keys [found coll] :as state} item]
+                (cond
+                  (some? found) state
+                  (some #{item} coll) (assoc state :found item)
+                  :else (update state :coll conj item)))
+              {:found nil :coll []}
+              input)
+      (:found input)
+      (some-> input
+              ((fn [[x y]] (+ (math/abs x) (math/abs y))))))
+    clojure.pprint/pprint)
+
+(sequence (interpose \*) '(\a \b \c \d))
+(into [] '(1 2 3))
+(into [] '())
+(range 1 3 1)
+(range -1 2 1)
+(range 1 3 -1)
+;; Day 1 has been an exercise to explore transducers closer,
+;; but the solution is overcomplicated!
+
