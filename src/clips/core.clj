@@ -458,3 +458,23 @@ iterate
 ;; Day 1 has been an exercise to explore transducers closer,
 ;; but the solution is overcomplicated!
 
+;;10/03/2018
+get-in
+get
+filter
+(def json-obj {:type :root :result [{:type :a :val :val-a} {:type :b :val [{:type :b1 :val :val-b1} {:type :b2 :val :val-b2}]} {:type :c :val :valc}]})
+(defn type? [type node] (= type (:type node)))
+(-> json-obj
+    :result
+    (as-> res (filter (partial type? :b) res))
+    prn)
+(defn get-by-type [type node] (when (= type (:type node)) node))
+(-> json-obj
+    :result
+    (as-> res (some (partial get-by-type :b) res))
+    prn)
+rest
+next
+(clojure.walk/walk identity #(do (prn (format "[walk] element: %s" %)) %) json-obj)
+(clojure.walk/prewalk #(do (prn (format "[prewalk] element: %s" %)) %) json-obj)
+(clojure.walk/postwalk #(do (prn (format "[postwalk] element: %s" %)) %) json-obj)
