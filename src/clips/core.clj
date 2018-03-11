@@ -529,3 +529,56 @@ next
 ;; So it is NOT worthwhile
 (= (m-transduce (map inc) (list + *) (list 0N 1N) (range 10))
    (transduce (map inc) add-and-mul-reducer [0N 1N] (range 10)))
+
+;; --- Day 2: Bathroom Security --- Part 1
+(drop 1 (map #(mod % 3) (range 10)))
+(defmulti padlock-move (fn [_ dir] dir))
+(defmethod padlock-move :u [{:keys [pos] :as state} _]
+  (let [next (- pos 3)]
+    (assoc state :pos (if (pos? next) next pos))))
+(defmethod padlock-move :d [{:keys [pos] :as state} _]
+  (let [next (+ pos 3)]
+    (assoc state :pos (if (>= 9 next) next pos))))
+(defmethod padlock-move :l [{:keys [pos] :as state} _]
+  (update state :pos (if (= 1 (mod pos 3)) identity dec)))
+(defmethod padlock-move :r [{:keys [pos] :as state} _]
+  (update state :pos (if (= 0 (mod pos 3)) identity inc)))
+(-> {:pos 5}
+    (padlock-move :u)
+    (padlock-move :l)
+    (padlock-move :l)
+    (as-> p (do (prn p) p))
+    (padlock-move :r)
+    (padlock-move :r)
+    (padlock-move :d)
+    (padlock-move :d)
+    (padlock-move :d)
+    (as-> p (do (prn p) p))
+    (padlock-move :l)
+    (padlock-move :u)
+    (padlock-move :r)
+    (padlock-move :d)
+    (padlock-move :l)
+    (as-> p (do (prn p) p))
+    (padlock-move :u)
+    (padlock-move :u)
+    (padlock-move :u)
+    (padlock-move :u)
+    (padlock-move :d)
+    (as-> p (do (prn p) p)))
+(defn find-padlock-comb [state instrs]
+  (as-> (reduce padlock-move state instrs) state
+    (update state :buttons conj (:pos state))))
+(-> "resources/aoc2016/padlock"
+    slurp
+    (clojure.string/split-lines)
+    (as-> lines (transduce (comp
+                            (map sequence)
+                            (map #(map
+                                   (fn [x] (-> x clojure.string/lower-case keyword))
+                                   %)))
+                           (completing find-padlock-comb)
+                           {:pos 5 :buttons []}
+                           lines))
+    :buttons
+    prn)
