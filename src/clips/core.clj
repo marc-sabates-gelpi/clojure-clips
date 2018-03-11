@@ -611,3 +611,22 @@ next
               {:ix 1}
               %))
     :basement)
+(first "abc")
+(seq "abc")
+(sequence "abc")
+slurp
+(-> "resources/aoc2015/notquitelisp"
+    slurp
+    (clojure.string/replace #"\(" "1")
+    (clojure.string/replace #"\)" "-1")
+    (#(re-seq #"-1|1" %))
+    (#(transduce
+       (map-indexed (fn [ix v] [ix (read-string v)]))
+       (completing (fn [res [ix v]]
+                     (let [next (+ res v)]
+                       (if (neg? next)
+                         (reduced ix)
+                         next))))
+       0
+       %))
+    inc)
