@@ -582,3 +582,32 @@ next
                            lines))
     :buttons
     prn)
+;; Aside while reading
+;; https://metail.com/technology/advent-of-code-or-how-i-learned-to-love-refactoring/
+;; (AoC 2015 Day 1 Part 1)
+(-> "resources/aoc2015/notquitelisp"
+    slurp
+    frequencies
+    (#(- (get % \( 0) (get % \) 0))))
+;; (AoC 2015 Day 1 Part 2)
+(def safe+ (fnil + 0))
+(-> "resources/aoc2015/notquitelisp"
+    slurp
+ ;; "()())"
+    (clojure.string/replace #"\(" "1")
+    (clojure.string/replace #"\)" "-1")
+    (#(re-seq #"-1|1" %))
+    (#(map read-string %))
+    (#(reduce (fn [{:keys [ix sum] :as state} curr]
+                (let [next (safe+ sum curr)]
+                  (cond
+                    (reduced? state) state
+                    (neg? next) (-> state
+                                    (assoc :basement ix)
+                                    reduced)
+                    :else (-> state
+                              (assoc :sum next)
+                              (update :ix inc)))))
+              {:ix 1}
+              %))
+    :basement)
