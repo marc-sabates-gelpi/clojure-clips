@@ -476,5 +476,56 @@ filter
 rest
 next
 (clojure.walk/walk identity #(do (prn (format "[walk] element: %s" %)) %) json-obj)
+(clojure.walk/prewalk-demo json-obj)
 (clojure.walk/prewalk #(do (prn (format "[prewalk] element: %s" %)) %) json-obj)
+(clojure.walk/postwalk-demo json-obj)
 (clojure.walk/postwalk #(do (prn (format "[postwalk] element: %s" %)) %) json-obj)
+;;11/03/2018
+;; How worthwhile would be to have a reduce that can run multiple reduce
+;; at the same time vs going through a collection multiple times?
+(defmacro inthread-time
+  "Evaluates expr and prints the time it took.  Returns the value of
+ expr."
+  [prefix expr]
+  `(let [start# (. System (nanoTime))
+         ret# ~expr]
+     (prn (str (format "[%s] " ~prefix) "Elapsed time: " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
+     ret#))
+(def ^:conts COLLSIZE 1000000)
+(future
+  (inthread-time "SEPARATE"
+   (let [bigcoll (range COLLSIZE)]
+     (transduce (map inc) + 0N bigcoll)
+     (transduce (map inc) * 1N bigcoll)
+     nil)))
+(defn add-and-mul-reducer
+  ([] [0N 1N])
+  ([result] result)
+  ([[add-total mul-total] el] [(+ add-total el) (* mul-total el)]))
+(future
+  (inthread-time "COMPOUND"
+   (do
+     (transduce (map inc) add-and-mul-reducer (range COLLSIZE))
+     nil)))
+(defmacro m-transduce
+  "Transduce with support for multiple reduce functions"
+  [xform fs inits coll]
+  `(transduce ~xform
+              (completing
+                      (fn
+                        ([res1#] res1#)
+                        ([resn# el#] (map
+                                      (fn [ff# res#]
+                                        (ff# res# el#))
+                                      ~fs
+                                      resn#))))
+              ~inits
+              ~coll))
+(clojure.pprint/pprint (macroexpand-1 '(m-transduce (map inc) (list + *) (list 0N 1N) (range 10))))
+;; Well It is not finished but I just got the results for a million
+;; elements:
+;; "[SEPARATE] Elapsed time: 2740235.579406 msecs"
+;; "[COMPOUND] Elapsed time: 2745969.020781 msecs"
+;; So it is NOT worthwhile
+(= (m-transduce (map inc) (list + *) (list 0N 1N) (range 10))
+   (transduce (map inc) add-and-mul-reducer [0N 1N] (range 10)))
