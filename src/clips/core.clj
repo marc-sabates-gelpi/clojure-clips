@@ -681,3 +681,34 @@ slurp
         (* weeks-in-a-year
            (apply-tax weekly-amount nic))])
      (reduce +))
+;;AoC2016 Day 2 Part 2
+(def ^:const padlock [[nil nil 1 nil nil] [nil 2 3 4 nil] [5 6 7 8 9] [nil \A \B \C nil] [nil nil \D nil nil]])
+(defmulti diamond-padlock-move (fn [_ dir] dir))
+(defmethod diamond-padlock-move :u [{[row col] :pos :keys [pos padlock] :as state} _]
+  (let [next-pos [(dec row) col]]
+    (assoc state :pos (if (get-in padlock next-pos) next-pos pos))))
+(defmethod diamond-padlock-move :d [{[row col] :pos :keys [pos padlock] :as state} _]
+  (let [next-pos [(inc row) col]]
+    (assoc state :pos (if (get-in padlock next-pos) next-pos pos))))
+(defmethod diamond-padlock-move :l [{[row col] :pos :keys [pos padlock] :as state} _]
+  (let [next-pos [row (dec col)]]
+    (assoc state :pos (if (get-in padlock next-pos) next-pos pos))))
+(defmethod diamond-padlock-move :r [{[row col] :pos :keys [pos padlock] :as state} _]
+  (let [next-pos [row (inc col)]]
+    (assoc state :pos (if (get-in padlock next-pos) next-pos pos))))
+(defn- find-padlock-comb-with-provided-move-fn [state instrs]
+  (as-> (reduce (:move-fn state) state instrs) state
+    (update state :buttons conj (get-in (:padlock state) (:pos state)))))
+(-> "resources/aoc2016/padlock"
+    slurp
+    (clojure.string/split-lines)
+    (as-> lines (transduce (comp
+                            (map sequence)
+                            (map #(map
+                                   (fn [x] (-> x clojure.string/lower-case keyword))
+                                   %)))
+                           (completing find-padlock-comb-with-provided-move-fn)
+                           {:pos [2 0] :buttons [] :move-fn diamond-padlock-move :padlock padlock}
+                           lines))
+    :buttons
+    prn)
