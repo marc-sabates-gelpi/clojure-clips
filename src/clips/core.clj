@@ -630,3 +630,54 @@ slurp
        0
        %))
     inc)
+;;13/03/2018
+(def ^:const income-tax '({:to 11500 :tax 0}
+                          {:to 45000 :tax 0.2}
+                          {:to 150000 :tax 0.4}
+                          {:to ##Inf :tax 0.45}))
+(def ^:const nic '({:to 157 :tax 0}
+                   {:to 866 :tax 0.12}
+                   {:to ##Inf :tax 0.02}))
+;; loop version (manual collection handling)
+(defn- add-bottom-bounds [coll]
+  (loop [prev-bottom 0 coll (seq (sort-by :to coll)) res []]
+    (if coll
+      (let [{:keys [to] :as curr} (first coll)]
+        (recur (+ 0.01 to) (next coll) (conj res (assoc curr :from prev-bottom))))
+      res)))
+;; map version (automatic collection handling) but state on a volatile
+(defn- make-boundary-mapper []
+  (let [prev-bottom (volatile! 0)]
+    (fn [{:keys [to] :as el}]
+      (let [prior @prev-bottom]
+        (vreset! prev-bottom (+ 0.01 to))
+        (assoc el :from prior)))))
+(defn- boundary-mapper [coll]
+  (map (make-boundary-mapper) (sort-by :to coll)))
+
+(add-bottom-bounds income-tax)
+(boundary-mapper income-tax)
+(->> (let [s 27000 weeks (/ 365 7) w (/ s weeks)]
+      [(+ ;;(* (min 11500 s) 0.0)
+        (* (max 0 (min (- 45000 11500) (- s 11500))) 0.2)
+        (* (max 0 (min (- 150000 45000) (- s 45000))) 0.4)
+        (* (max 0 (- s 150000)) 0.45))
+       (* weeks
+          (+ ;;(* (min 157 w) 0.0)
+           (* (max 0 (min (- 866 157) (- w 157))) 0.12)
+           (* (max 0 (- w 866)) 0.02)
+           ))])
+     (reduce +))
+(defn- apply-tax [amount ranges]
+  (reduce (fn [res {:keys [to from tax]}]
+            (+ res
+               (*
+                tax
+                (max 0 (min (- to from) (- amount from))))))
+          0
+          (boundary-mapper ranges)))
+(->> (let [amount 27000 weeks-in-a-year (/ 365 7) weekly-amount (/ amount weeks-in-a-year)]
+       [(apply-tax amount income-tax) 
+        (* weeks-in-a-year
+           (apply-tax weekly-amount nic))])
+     (reduce +))
