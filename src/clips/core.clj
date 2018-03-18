@@ -712,3 +712,56 @@ slurp
                            lines))
     :buttons
     prn)
+;; 17/03/2018
+;; AoC 2016 Day 3 Part 1
+(clojure.string/split "  919  923  873" #"\t")
+(clojure.string/split "  919  923  873" #"\s")
+(re-seq #"[0-9]+" "  919  923  873")
+(defn- valid-t? [t]
+  (let [[a b c] (sort t)]
+    (> (+ a b) c)))
+(valid-t? '(5 20 25))
+(-> "resources/aoc2016/triangles"
+    slurp
+ ;; "  919  923  873
+ ;;  5 10 25
+ ;;  6 11 30"
+    clojure.string/split-lines
+    (as-> lines (eduction (map #(re-seq #"[0-9]+" %))
+                          (map #(map read-string %))
+                          (map sort)
+                          (filter valid-t?)
+                          lines)) ;;Just trying out eduction I could use
+                                  ;;sequence
+    seq
+    count)
+;; Day 3 Part 2
+(defn transpose-3
+  "Creates a list with 3 lists resulting from gettng the first element
+   of each input lists, the second of each input list and so forth.
+   The input must be a collection with 3 collections with 3 nums"
+  [[[top-l top-c top-r] [mid-l mid-c mid-r] [bot-l bot-c bot-r]]]
+  (list
+   (list top-l mid-l bot-l)
+   (list top-c mid-c bot-c)
+   (list top-r mid-r bot-r)))
+(-> "resources/aoc2016/triangles"
+    slurp
+ ;; "  919  923  873
+ ;;  5 10 25
+ ;;  6 11 30
+ ;;  6 11 26
+ ;;  5 10 25
+ ;;  5 10 25"
+    clojure.string/split-lines
+    (as-> lines (sequence (comp
+                           (map #(re-seq #"[0-9]+" %))
+                           (map #(map read-string %))
+                           (partition-all 3)
+                           (map transpose-3)
+                           cat
+                           (map sort)
+                           (filter valid-t?))
+                          lines))
+    count)
+(into [] (comp cat cat (map inc)) [[[1] [2]] [[3] [4]]])
