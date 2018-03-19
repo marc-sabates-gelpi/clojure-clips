@@ -765,3 +765,41 @@ slurp
                           lines))
     count)
 (into [] (comp cat cat (map inc)) [[[1] [2]] [[3] [4]]])
+;;;; Session 19/03/2018
+
+;;; AoC 2016 Day 4 Part 1
+;;; --- Day 4: Security Through Obscurity ---
+(defn- parse-room
+  "Parses the room data into a map."
+  [coll]
+  (let [name (butlast coll)
+        id-checksum (last coll)
+        [id checksum] ((juxt ; HACK: juxt is not really needed,
+                             ;       just playing with it
+                        #(re-find #"[0-9]+" %)
+                        #(re-find #"[\p{Alpha}]+" %))
+                       id-checksum)
+        name (apply str name)]
+    (hash-map :name name :id id :checksum checksum)))
+(defn- valid-r?
+  "Valid when the checksum is the 5 most frequent letters on the name.
+  When same frequency then alphabetically ordered."
+  [{:keys [name checksum]}]
+  (= checksum (->> name
+                   sort
+                   frequencies
+                   (sort-by val #(* -1 (compare %1 %2))) ; HACK
+                   (take 5)
+                   (map key)
+                   (apply str))))
+(-> "resources/aoc2016/rooms"
+    slurp
+    clojure.string/split-lines
+    (as-> lines (transduce (comp
+                            (map #(clojure.string/split % #"-"))
+                            (map parse-room)
+                            (filter valid-r?)
+                            (map :id)
+                            (map read-string))
+                           +
+                           lines)))
