@@ -772,14 +772,14 @@ slurp
 (defn- parse-room
   "Parses the room data into a map."
   [coll]
-  (let [name (butlast coll)
-        id-checksum (last coll)
+  (let [name (->> coll
+                 butlast
+                 (apply str))
         [id checksum] ((juxt ; HACK: juxt is not really needed,
                              ;       just playing with it
                         #(re-find #"[0-9]+" %)
                         #(re-find #"[\p{Alpha}]+" %))
-                       id-checksum)
-        name (apply str name)]
+                       (last coll))]
     (hash-map :name name :id id :checksum checksum)))
 (defn- valid-r?
   "Valid when the checksum is the 5 most frequent letters on the name.
@@ -788,7 +788,7 @@ slurp
   (= checksum (->> name
                    sort
                    frequencies
-                   (sort-by val #(* -1 (compare %1 %2))) ; HACK
+                   (sort-by val #(compare %2 %1)) ; HACK
                    (take 5)
                    (map key)
                    (apply str))))
@@ -803,3 +803,65 @@ slurp
                             (map read-string))
                            +
                            lines)))
+;;;; Session 20/03/2018
+
+;;; AoC 2016 Day 4 Part 2
+(def ^:private ^:const offset-letters (dec (int \a)))
+(def ^:private ^:const num-letters 26)
+
+(defn- parse-room-2
+  "Parses the room data into a map."
+  [coll]
+  (let [name (butlast coll)
+        raw-name (apply str name) 
+        [id checksum] ((juxt ; HACK: juxt is not really needed,
+                             ;       just playing with it
+                        #(re-find #"[0-9]+" %)
+                        #(re-find #"[\p{Alpha}]+" %))
+                       (last coll))]
+    (hash-map :raw-name raw-name :name name :id (read-string id) :checksum checksum)))
+
+(defn- valid-r-2?
+  "Valid when the checksum is the 5 most frequent letters on the name.
+  When same frequency then alphabetically ordered."
+  [{:keys [raw-name checksum]}]
+  (= checksum (->> raw-name
+                   sort
+                   frequencies
+                   (sort-by val #(compare %2 %1)) ; HACK
+                   (take 5)
+                   (map key)
+                   (apply str))))
+
+(defn- shift-cipher-char
+  "Shifts a letter by a fix amount."
+  [n ch]
+  (-> (int ch)
+      (- offset-letters)
+      (+ n)
+      (mod num-letters)
+      (+ offset-letters)
+      char))
+
+(defn- shift-cipher
+  "Applies shift-cipher to a string."
+  [n s]
+  (apply str (map (partial shift-cipher-char n) s)))
+
+(defn- decrypt-names
+  "Decrypts the room names."
+  [{:keys [id] :as room}]
+  (update room :name (fn [coll] (->> (map (partial shift-cipher id) coll)
+                                     (interpose \space)
+                                     (apply str)))))
+
+(-> "resources/aoc2016/rooms"
+    slurp
+    clojure.string/split-lines
+    (as-> lines (sequence (comp
+                            (map #(clojure.string/split % #"-"))
+                            (map parse-room-2)
+                            (filter valid-r-2?)
+                            (map decrypt-names)
+                            (filter #(re-find #"north" (:name %))))
+                          lines)))
