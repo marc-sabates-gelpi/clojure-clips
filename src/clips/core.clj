@@ -865,3 +865,39 @@ slurp
                             (map decrypt-names)
                             (filter #(re-find #"north" (:name %))))
                           lines)))
+
+;;;; Session 23/03/2018
+
+;;; AoC2016 Day 5 Part 1
+(def ^:private zero (int \0))
+;; C-c RET h d [digest "1.4.6"]
+(require '[digest :as digest])
+
+(defn- seeded-indexed-md5-gen
+  "An infinite generator of md5 hashes.
+  The hash is got from the `seed` with an `ix`."
+  [seed ix]
+  (lazy-seq (cons (digest/md5 (str seed ix))
+                  (seeded-indexed-md5-gen seed (inc ix)))))
+
+(defn- make-seeded-md5-gen
+  "Creates an md5 generator with ix 0"
+  [seed]
+  (seeded-indexed-md5-gen seed 0))
+
+(defn- make-difficult-n?
+  "Makes a `n` difficulty predicate.
+  The predicate returns the true if begins with `n` zeros otherwise false."
+  [n]
+  (let [x (min 32 n)]
+    (fn [hash]
+      (= "0" (apply str (dedupe (take x hash)))))))
+
+(defn- make-difficulty-md5-gen
+  "Generator of md5 with a certain difficulty.
+  The difficulty is the `n` of zeros in the beggining of the hash."
+  [seed n]
+  (let [coll (drop-while (complement (make-difficult-n? n)) (make-seeded-md5-gen seed))]
+    (lazy-seq (cons (first coll)
+                    (next coll) ;; FIXME: The next doesn't fulfill pred
+                    ))))
