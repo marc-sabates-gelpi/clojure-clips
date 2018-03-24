@@ -878,14 +878,10 @@ slurp
 (defn- seeded-indexed-md5-gen
   "An infinite generator of md5 hashes.
   The hash is got from the `seed` with an `ix`."
-  [seed ix]
-  (lazy-seq (cons (digest/md5 (str seed ix))
-                  (seeded-indexed-md5-gen seed (inc ix)))))
-
-(defn- make-seeded-md5-gen
-  "Creates an md5 generator with ix 0"
-  [seed]
-  (seeded-indexed-md5-gen seed 0))
+  ([seed] (seeded-indexed-md5-gen seed 0))
+  ([seed ix]
+   (lazy-seq (cons (digest/md5 (str seed ix))
+                   (seeded-indexed-md5-gen seed (inc ix))))))
 
 (defn- make-n-difficult?
   "Makes a `n` difficulty predicate.
