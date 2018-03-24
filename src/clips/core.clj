@@ -1,6 +1,7 @@
 (ns clips.core
   (:require [clojure.core.async :as async]
             [spyscope.core]))
+
 ;;01/03/2018
 doall
 run!
@@ -869,7 +870,8 @@ slurp
 ;;;; Session 23/03/2018
 
 ;;; AoC2016 Day 5 Part 1
-(def ^:private zero (int \0))
+(def ^:const ^:private passwd-len 8)
+(def ^:const ^:private hash-difficulty 5)
 ;; C-c RET h d [digest "1.4.6"]
 (require '[digest :as digest])
 
@@ -885,19 +887,35 @@ slurp
   [seed]
   (seeded-indexed-md5-gen seed 0))
 
-(defn- make-difficult-n?
+(defn- make-n-difficult?
   "Makes a `n` difficulty predicate.
-  The predicate returns the true if begins with `n` zeros otherwise false."
+  The predicate returns the `true` if `hash` begins with `n` zeros,
+  and `false` otherwise."
   [n]
   (let [x (min 32 n)]
     (fn [hash]
       (= "0" (apply str (dedupe (take x hash)))))))
 
-(defn- make-difficulty-md5-gen
-  "Generator of md5 with a certain difficulty.
+(defn- difficulty-md5-filter
+  "Filters a `coll` of md5 with a certain difficulty.
   The difficulty is the `n` of zeros in the beggining of the hash."
-  [seed n]
-  (let [coll (drop-while (complement (make-difficult-n? n)) (make-seeded-md5-gen seed))]
+  [n coll]
+  (let [coll (drop-while (complement (make-n-difficult? n)) coll)]
     (lazy-seq (cons (first coll)
-                    (next coll) ;; FIXME: The next doesn't fulfill pred
-                    ))))
+                    (difficulty-md5-filter n (rest coll))))))
+
+(->> (sequence (comp
+                (take passwd-len)
+                (map #(get % hash-difficulty)))
+               (difficulty-md5-filter
+                hash-difficulty
+                (make-seeded-md5-gen "ffykfhsq")))
+    (apply str))
+
+;;; Alternative impl with the difficulty filter in the transduce proc
+(->> (sequence (comp
+                (filter (make-n-difficult? hash-difficulty))
+                (take passwd-len)
+                (map #(get % hash-difficulty)))
+               (make-seeded-md5-gen "ffykfhsq"))
+    (apply str))
