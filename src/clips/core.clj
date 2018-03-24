@@ -900,12 +900,14 @@ slurp
     (lazy-seq (cons (first coll)
                     (difficulty-md5-filter n (rest coll))))))
 
+(ns-unmap *ns* 'make-seeded-md5-gen)
+
 (->> (sequence (comp
                 (take passwd-len)
                 (map #(get % hash-difficulty)))
                (difficulty-md5-filter
                 hash-difficulty
-                (make-seeded-md5-gen "ffykfhsq")))
+                (seeded-indexed-md5-gen "ffykfhsq")))
     (apply str))
 
 ;;; Alternative impl with the difficulty filter in the transduce proc
@@ -913,5 +915,5 @@ slurp
                 (filter (make-n-difficult? hash-difficulty))
                 (take passwd-len)
                 (map #(get % hash-difficulty)))
-               (make-seeded-md5-gen "ffykfhsq"))
+               (seeded-indexed-md5-gen "ffykfhsq"))
     (apply str))
