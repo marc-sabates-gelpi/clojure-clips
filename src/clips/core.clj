@@ -1028,3 +1028,28 @@ enarar"
                 (map first)
                 (map key)))
      (apply str))
+
+;;; AoC 2016 Day 7 Part 1
+
+(defn- abba?
+  "Logical true if abba and a <> b, logical false otherwise."
+  [s]
+  ;; REVIEW: (?!\1) is a negative lookahead containing group 1.
+  ;;         It does not consume input, it only asserts.
+  (re-find #".*(\p{Alnum}{1})(?!\1)(\p{Alnum}{1})\2\1.*" s))
+
+(->> "resources/aoc2016/ips"
+     slurp
+     #_"abba[mnop]qrst
+abcd[bddb]xyyx
+aaaa[qwer]tyui
+aaaa[qwer2]abba
+abba[qwer3]aaaa
+ioxxoj[asdfgh]zxcvbn
+ahah[abba]asdf"
+     clojure.string/split-lines
+     (sequence (comp
+                (filter abba?)
+                (map #(re-seq #"\[\p{Alnum}+\]" %))
+                (remove #(some abba? %))))
+     count)
