@@ -938,16 +938,16 @@ slurp
 ;;; AoC2016 Day 5 Part 2
 
 (defn- make-valid-pos?
-  "Returns nil when ascii 0 > nth-`hash` or nth-`hash` > ascii 7,
-  or nth-`hash` already existed."
+  "Returns nil when ascii 0 > nth-`hash`, nth-`hash` > ascii 7,
+  or nth-`hash` already exists."
   [n]
-  (let [zero (int \0) seven (int \7) positions (volatile! '())]
+  (let [zero (int \0) seven (int \7) prevs (volatile! '())]
     (fn [hash]
       (let [x (int (get hash n))]
         (when (and
                (<= zero x seven)
-               (not (some #{x} @positions)))
-          (vswap! positions conj x))))))
+               (not-any? #{x} @prevs))
+          (vswap! prevs conj x))))))
 
 (->> (sequence (comp
                 (filter (make-n-difficult? hash-difficulty))
