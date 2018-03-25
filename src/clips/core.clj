@@ -999,3 +999,32 @@ enarar"
   (comment (println "I am commented out, too.."))
   #_ (println "I am commented out, as well..")
   #break (+ 2 2))
+
+;;; AoC 2016 Day 6 Part 2
+
+(->> "resources/aoc2016/message"
+     slurp
+     #_"eedadn
+drvtee
+eandsr
+raavrd
+atevrs
+tsrnev
+sdttsa
+rasrtv
+nssdts
+ntnada
+svetve
+tesnvt
+vntsnd
+vrdear
+dvrsen
+enarar" 
+     clojure.string/split-lines
+     (reduce #(apply mapv conj %&) (for [x (range #_6 8)] []))
+     (sequence (comp
+                (map frequencies)
+                (map #(sort-by val %))
+                (map first)
+                (map key)))
+     (apply str))
