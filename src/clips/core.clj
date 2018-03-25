@@ -870,9 +870,11 @@ slurp
 ;;;; Session 23/03/2018
 
 ;;; AoC2016 Day 5 Part 1
+
 (def ^:const ^:private passwd-len 8)
 (def ^:const ^:private hash-difficulty 5)
-;; C-c RET h d [digest "1.4.6"]
+
+;;; C-c RET h d [digest "1.4.6"]
 (require '[digest :as digest])
 
 (defn- seeded-indexed-md5-gen
@@ -885,8 +887,8 @@ slurp
 
 (defn- make-n-difficult?
   "Makes a `n` difficulty predicate.
-  The predicate returns the `true` if `hash` begins with `n` zeros,
-  and `false` otherwise."
+  The predicate returns the true if `hash` begins with `n` zeros,
+  and false otherwise."
   [n]
   (let [x (min 32 n)]
     (fn [hash]
@@ -917,3 +919,43 @@ slurp
                 (map #(get % hash-difficulty)))
                (seeded-indexed-md5-gen "ffykfhsq"))
     (apply str))
+
+;;; 24/03/2018
+;;; Structure & Interpretation test
+(defn- cons [x y]
+  (fn dispatch [m]
+    (cond (= m 0) x ; POC, this could be using case
+          (= m 1) y
+          :else (throw (Exception. (str "Argument not 0 or 1 -- CONS" m))))))
+
+(defn- car [z] (z 0))
+
+(defn- cdr [z] (z 1))
+
+(car (cons 1 2))
+(cdr (cons 1 2))
+
+;;; AoC2016 Day 5 Part 2
+
+(defn- make-valid-pos?
+  "Returns nil when ascii 0 > nth-`hash` or nth-`hash` > ascii 7,
+  or nth-`hash` already existed."
+  [n]
+  (let [zero (int \0) seven (int \7) positions (volatile! '())]
+    (fn [hash]
+      (let [x (int (get hash n))]
+        (when (and
+               (<= zero x seven)
+               (not (some #{x} @positions)))
+          (vswap! positions conj x))))))
+
+(->> (sequence (comp
+                (filter (make-n-difficult? hash-difficulty))
+                (filter (make-valid-pos? hash-difficulty))
+                (take passwd-len)
+                (map #(vector (get % hash-difficulty) (get % (inc hash-difficulty)))))
+               (seeded-indexed-md5-gen "ffykfhsq" #_"abc"))
+     (sort-by (fn [[k _]] k))
+     (map (fn [[_ v]] v))
+     (apply str)
+     prn)
