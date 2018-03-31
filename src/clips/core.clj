@@ -1053,3 +1053,30 @@ ahah[abba]asdf"
                 (map #(re-seq #"\[\p{Alnum}+\]" %))
                 (remove #(some abba? %))))
      count)
+
+;;; AoC 2016 Day 7 Part 2
+
+(defn- aba-bab?
+  "Returns logical true when an aba-[bab] or viceversa is found.
+  The pattern can be surrounded by other chars and segments."
+  [s]
+  (or
+   (re-find #"(\p{Alnum}{1})(?!\1)(\p{Alnum}{1})\1.*\[[^\[\]]*\2\1\2[^\[\]]*\]" s)
+   (re-find #"\[[^\[\]]*(\p{Alnum}{1})(?!\1)(\p{Alnum}{1})\1[^\[\]]*\].*\2\1\2" s)))
+
+(->> #_"aba[bab]xyz
+xyx[xyx]xyx
+aaa[kek]eke
+zazbz[abzb]cdb"
+    "aba[bab]xyz
+xyx[xyx]xyx
+aaa[kek]eke
+zazbz[bzb]cdb"
+    #_"resources/aoc2016/ips"
+    #_slurp
+    clojure.string/split-lines
+    (sequence (comp
+               (map aba-bab?)
+               (remove nil?)
+               (map #(clojure.pprint/pprint %))))
+    #_count)
