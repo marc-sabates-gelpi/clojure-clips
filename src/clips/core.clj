@@ -1056,27 +1056,50 @@ ahah[abba]asdf"
 
 ;;; AoC 2016 Day 7 Part 2
 
+(defn- get-aba
+  "Returns all the possible aba patterns on `s`."
+  [s]
+  (sequence (comp
+             (map #(re-find #"(\p{Alnum}{1})(?!\1)(\p{Alnum}{1})\1" %))
+             (remove nil?)
+             (map first))
+            (for [x (range (count s))] (subs s x))))
+
+(defn- reverse-aba
+  "Converts aba -> bab."
+  [s]
+  {:pre [(= 3 (count s)) (= (get s 0) (get s 2))]}
+  (str (get s 1) (get s 0) (get s 1)))
+
 (defn- aba-bab?
-  "Returns logical true when an aba-[bab] or viceversa is found.
+  "Returns logical true when an aba~[bab] or viceversa is found.
   The pattern can be surrounded by other chars and segments."
   [s]
-  (or
-   (re-find #"(\p{Alnum}{1})(?!\1)(\p{Alnum}{1})\1.*\[[^\[\]]*\2\1\2[^\[\]]*\]" s)
-   (re-find #"\[[^\[\]]*(\p{Alnum}{1})(?!\1)(\p{Alnum}{1})\1[^\[\]]*\].*\2\1\2" s)))
+  (let [hypernets (re-seq #"\[\p{Alnum}+\]" s)
+        supernets (-> (reduce #(clojure.string/replace %1 %2 "-") s hypernets)
+                      (clojure.string/split #"-"))
+        super-aba (->> supernets
+                       (map get-aba)
+                       flatten
+                       set)
+        hyper-aba (->> hypernets
+                       (map get-aba)
+                       flatten
+                       set
+                       (map reverse-aba))]
+    (some super-aba hyper-aba)))
 
 (->> #_"aba[bab]xyz
 xyx[xyx]xyx
 aaa[kek]eke
 zazbz[abzb]cdb"
-    "aba[bab]xyz
+    #_"aba[bab]xyz
 xyx[xyx]xyx
 aaa[kek]eke
 zazbz[bzb]cdb"
-    #_"resources/aoc2016/ips"
-    #_slurp
+    "resources/aoc2016/ips"
+    slurp
     clojure.string/split-lines
     (sequence (comp
-               (map aba-bab?)
-               (remove nil?)
-               (map #(clojure.pprint/pprint %))))
-    #_count)
+               (filter aba-bab?)))
+    count)
