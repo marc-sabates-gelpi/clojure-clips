@@ -74,6 +74,17 @@
     (dissoc parsed :a)
     (dissoc parsed :b)))
 
+(defn- shift-right
+  "Shift a collection `n` positions to the right.
+  It wraps on `len` and returns a vector."
+  [coll n len]
+  (->> coll
+       (repeat 2)
+       flatten
+       (drop (- len n))
+       (take len)
+       vec))
+
 (defmulti run-screen-instr
   "Execute a screen instruction."
   (fn [_ parsed] (:op parsed)))
@@ -86,23 +97,21 @@
 
 (defmethod run-screen-instr :rot-row
   [screen {:keys [row by]}]
-  (assoc screen row (->> (get screen row)
-                         (repeat 2)
-                         flatten
-                         (drop (- wide by))
-                         (take wide)
-                         vec)))
+  (assoc screen row (shift-right (get screen row) by wide)))
 
 (defmethod run-screen-instr :rot-col
-  [screen {:keys [col by]}])
+  [screen {:keys [col by]}]
+  (let [column (map #(get-in screen [% col]) (range tall))
+        shifted (shift-right column by tall)]
+    (reduce-kv #(assoc-in %1 [%2 col] %3) screen shifted)))
 
 (-> "resources/aoc2016/screen-instructions"
     slurp
     clojure.string/split-lines
-    (as-> lines (#_sequence transduce (comp
-                                       (map parse-rect)
-                                       (map parse-rot-row)
-                                       (map parse-rot-col))
+    (as-> lines (transduce (comp
+                            (map parse-rect)
+                            (map parse-rot-row)
+                            (map parse-rot-col))
                            (completing run-screen-instr)
                            (empty-screen wide tall)
                            lines)))
