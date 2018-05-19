@@ -39,40 +39,28 @@
   "Parse a screen instruction.
   Try to match `pattern` and if so return screen op `op`,
   otherwsie return identity."
-  [pattern op instr]
+  [pattern op instr label-a label-b]
   (if-let [[_ a b] (and (string? instr) (re-find pattern instr))]
-    {:op op :a (read-string a) :b (read-string b)}
+    {:op op label-a (read-string a) label-b (read-string b)}
     instr))
 
 (defn- parse-rect
   "Parse a rect instruction or return identity.
   The instruction follows this pattern: `rect AxB`."
   [instr]
-  (as-> (parse-screen-instr #"\brect\s+([0-9]+)x([0-9]+)\b" :rec instr) parsed
-    (assoc parsed :wide (get parsed :a))
-    (assoc parsed :tall (get parsed :b))
-    (dissoc parsed :a)
-    (dissoc parsed :b)))
+  (parse-screen-instr #"\brect\s+([0-9]+)x([0-9]+)\b" :rec instr :wide :tall))
 
 (defn- parse-rot-row
   "Parse a rotate row instruction or return identity.
   The instruction follows this pattern: `rotate row y=A by B`."
   [instr]
-  (as-> (parse-screen-instr #"\brotate\s+row\s+y=([0-9]+)\s+by\s+([0-9]+)\b" :rot-row instr) parsed
-    (assoc parsed :row (get parsed :a))
-    (assoc parsed :by (get parsed :b))
-    (dissoc parsed :a)
-    (dissoc parsed :b)))
+  (parse-screen-instr #"\brotate\s+row\s+y=([0-9]+)\s+by\s+([0-9]+)\b" :rot-row instr :row :by))
 
 (defn- parse-rot-col
   "Parse a rotate col instruction or return identity.
   The instruction follows this pattern: `rotate column x=A by B`."
   [instr]
-  (as-> (parse-screen-instr #"\brotate\s+column\s+x=([0-9]+)\s+by\s+([0-9]+)\b" :rot-col instr) parsed
-    (assoc parsed :col (get parsed :a))
-    (assoc parsed :by (get parsed :b))
-    (dissoc parsed :a)
-    (dissoc parsed :b)))
+  (parse-screen-instr #"\brotate\s+column\s+x=([0-9]+)\s+by\s+([0-9]+)\b" :rot-col instr :col :by))
 
 (defn- shift-right
   "Shift a collection `n` positions to the right.
@@ -114,4 +102,7 @@
                             (map parse-rot-col))
                            (completing run-screen-instr)
                            (empty-screen wide tall)
-                           lines)))
+                           lines))
+    flatten
+    (#(filter #{\#} %))
+    count)
