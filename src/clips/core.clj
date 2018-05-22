@@ -106,3 +106,20 @@
     flatten
     (#(filter #{\#} %))
     count)
+
+;;; some-> & cond->
+
+(some-> {}
+        (assoc :new-key :new-val)
+        {} (assoc :another-key :another-val))
+
+(some-> {}
+        (assoc :new-key :new-val)
+        (assoc :another-key :another-val))
+
+(let [name :name surname nil tel :tel]
+  (cond-> {}
+    name (assoc :name name)
+    surname (assoc :surname surname)
+    tel (assoc :tel tel)
+    true (assoc :timestamp (java.util.Date.))))
