@@ -222,3 +222,87 @@
                  :application.response/greenhouse-name))
         first
         :application.response/answer)])
+
+;;;; Refactor `update-answer`
+
+;;; Original
+
+(defn update-answer
+  "Updates the application in the db with the given question/answer, or adds it if it doesn't exist"
+  [responses greenhouse-name answer]
+  (if-let [idx (->> responses
+                    (keep-indexed (fn-traced [idx response]
+                                    (when (= greenhouse-name (:application.response/greenhouse-name response))
+                                      idx)))
+                    first)]
+    (update responses idx assoc :application.response/answer answer)
+    (conj responses {:application.response/greenhouse-name greenhouse-name
+                     :application.response/answer answer})))
+
+;;; Attempt 1
+;;; Failure; It doesnt' work..
+
+(defn update-answer
+  "Updates the `greenhouse-name` question in `responses` with the given `answer`, or adds it."
+  [responses greenhouse-name answer]
+  (vec (or ; FIXME: It always returns the `(map)` execution
+        (map
+         (fn [m]
+           (if ((comp #{greenhouse-name} :application.response/greenhouse-name) m)
+             (update m assoc :application.response/answer answer)
+             m))
+         responses)
+        (conj responses {:application.response/greenhouse-name greenhouse-name
+                         :application.response/answer answer})))
+  #_(if-let [idx (->> responses
+                    (keep-indexed (fn-traced [idx response]
+                                    (when (= greenhouse-name (:application.response/greenhouse-name response))
+                                      idx)))
+                    first)]
+    (update responses idx assoc :application.response/answer answer)
+    (conj responses {:application.response/greenhouse-name greenhouse-name
+                     :application.response/answer answer})))
+
+;;;; 28/05/2018
+
+(realized? '(1 2 3)) ; ClassCastException clojure.lang.PersistentList cannot be cast to clojure.lang.IPending
+
+(realized? (seq '(1 2 3))) ; idem
+
+(realized? (iterate inc 0)) ; it doesn't tell if it has been fully realized
+
+;;; Attempt 2
+
+(reduce-kv #(conj %1 {%2 %3}) [] [:a :b :c])
+
+(some)
+
+;; macro definition
+(defmacro some-indexed [pred coll]
+  "Return index of the first `pred` true."
+  `(letfn [(some-ix# [pred# ix# coll#]
+             (when (seq coll#)
+               (or (and (pred# (first coll#)) ix#)
+                   (recur pred# (inc ix#) (next coll#)))))]
+     (some-ix# ~pred 0 ~coll)))
+
+(some-indexed #{2} [0 1 2 3 4 5])
+
+(some-indexed (comp #{2} :nspace/field1) [{:nspace/field1 0 :nspace/field2 :v} {:nspace/field1 1 :nspace/field2 :v} {:nspace/field1 2 :nspace/field2 :v} {:nspace/field1 3 :nspace/field2 :v}])
+
+(some-indexed (comp #{-1} :nspace/field1) [{:nspace/field1 0 :nspace/field2 :v} {:nspace/field1 1 :nspace/field2 :v} {:nspace/field1 2 :nspace/field2 :v} {:nspace/field1 3 :nspace/field2 :v}])
+
+;; function definition
+(defn update-answer
+  "Updates the `greenhouse-name` question in `responses` with the given `answer`, or adds it."
+  [responses greenhouse-name answer]
+  (if-let [idx (some-indexed (comp #{greenhouse-name} :application.response/greenhouse-name) responses)]
+    (update responses idx assoc :application.response/answer answer)
+    (conj responses {:application.response/greenhouse-name greenhouse-name
+                     :application.response/answer answer})))
+
+;; test
+(let [name-looked-for :name2
+      responses [{:application.response/greenhouse-name :name0 :application.response/answer "Answer 0"} {:application.response/greenhouse-name :name1 :application.response/answer "Answer 1"} {:application.response/greenhouse-name :name2 :application.response/answer "Answer 2"}]]
+  (clojure.pprint/pprint (update-answer responses name-looked-for "NEW ANSWER!"))
+  (clojure.pprint/pprint (update-answer responses :non-existent-name "NEW ANSWER!")))
