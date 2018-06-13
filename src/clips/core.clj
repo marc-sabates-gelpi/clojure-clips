@@ -306,3 +306,74 @@
       responses [{:application.response/greenhouse-name :name0 :application.response/answer "Answer 0"} {:application.response/greenhouse-name :name1 :application.response/answer "Answer 1"} {:application.response/greenhouse-name :name2 :application.response/answer "Answer 2"}]]
   (clojure.pprint/pprint (update-answer responses name-looked-for "NEW ANSWER!"))
   (clojure.pprint/pprint (update-answer responses :non-existent-name "NEW ANSWER!")))
+
+;;; spec optional vs nil
+(require '[clojure.spec.alpha :as s])
+
+(def email-regex #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$")
+(s/def ::email-type (s/and string? #(re-matches email-regex %)))
+(s/def ::first-name string?)
+(s/def ::last-name string?)
+(s/def ::email ::email-type)
+(s/def ::phone string?)
+(s/def ::person (s/keys :req-un [::first-name ::last-name ::email]
+                        :opt-un [::phone]))
+(s/valid? ::person
+  {:first-name "Elon"
+   :last-name "Musk"
+   :email "elon@example.com"})
+
+(s/valid? ::person
+  {:first-name "Elon"
+   :last-name "Musk"
+   :email "elon@example.com"
+   :phone nil})
+
+(s/explain ::person
+  {:first-name "Elon"
+   :last-name "Musk"
+   :email "elon@example.com"
+   :phone nil})
+
+(s/def ::phone (s/nilable string?))
+(s/valid? ::person
+  {:first-name "Elon"
+   :last-name "Musk"
+   :email "elon@example.com"
+   :phone nil})
+
+;;; (s/def :ring.request/query-string
+;;;  (s/with-gen string? gen-query-string))
+;;; is NOT nilable, and somehow we are getting
+;;; :query-string nil,
+;;;               ^^^
+;;; damn it !
+
+
+;;; Session 13/06/2018
+
+(defn remote-call
+  "Fake remote call."
+  [page]
+  (printf "Remote call for page %d" page)
+  (when (>= 2 page)
+    (range (* page 10) (* (inc page) 10))))
+
+(defn auth0-users
+  "Lazy seq of auth0 users."
+  [coll page]
+
+  (if (seq coll)
+    (lazy-seq (cons (first coll) (auth0-users (rest coll) page)))
+    (when-let [response (seq (clips.core/remote-call page))]
+      (lazy-seq (cons (first response) (auth0-users (rest response) (inc page)))))))
+
+
+(defn make-auth0-users
+  "Make auth0 users lazy list."
+  []
+  (auth0-users nil 0))
+
+(def users (make-auth0-users))
+
+(take 40 users)
