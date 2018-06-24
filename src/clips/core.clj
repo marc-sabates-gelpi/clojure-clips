@@ -439,12 +439,31 @@
           0
           (matching-chars sa sb)))
 
-(defn- transpositions
-  "Number of Jaro's transpositions."
+(defn- transpose
+  "Transposes a matrix."
+  [matrix]
+  (apply map list matrix))
+
+(defn- extract-matches
+  "Extract the actual matches from string `s` wth the matches `matrix`."
+  [s matrix]
+  (->> matrix
+       (map #(reduce + %))
+       (map-indexed #(when (pos? %2) (get s %1)))
+       (remove nil?)
+       (reduce str)))
+
+#_(defn- count-transpositions
+  "Add the ")
+
+(defn- jaro-word-transpositions
+  "Number of Jaro's transpositions in strings."
   [sa sb]
-  (->> (map #(reduce + %) (matching-chars sa sb))
-       (map-indexed #(when (pos? %2) (get sa %1)))
-       (remove nil?)))
+  (let [matching-chars-matrix (matching-chars sa sb)
+        stringa-matching-chars (extract-matches sa matching-chars-matrix)
+        stringb-matching-chars (extract-matches sb (transpose matching-chars-matrix))]
+    
+    [stringa-matching-chars stringb-matching-chars]))
 
 ;; Jaro word similarity
 (defn- jaro-sim
