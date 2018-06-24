@@ -377,3 +377,77 @@
 (def users (make-auth0-users))
 
 (take 40 users)
+
+;;; Session 23/06/2018
+
+;; Levenshtein distance
+(defn- c1
+  "Levenshtein distance indicator function."
+  [sa sb]
+  (if (= sa sb)
+    0
+    1))
+
+(def ld
+  (memoize
+   (fn
+     [na nb colla collb]
+     (cond
+       (zero? na) nb
+       (zero? nb) na
+       true (min
+             (+
+              (ld (dec na) (dec nb) colla collb)
+              (c1 (get colla (dec na)) (get collb (dec nb))))
+             (inc (ld na (dec nb) colla collb))
+             (inc (ld (dec na) nb colla collb)))))))
+
+(defn leven-dist
+  "Levenshtein distance between 2 sentences."
+  [colla collb]
+  (ld (count colla) (count collb) (vec colla) (vec collb)))
+
+;;; Session 24/06/2018
+(defn- abs
+  "Absolute value."
+  [x]
+  (if (neg? x)
+    (* -1 x)
+    x))
+
+(defn- matching-chars
+  "Jaro's matching chars between 2 words.
+  Returns a collection of collections of `1` and `0`.
+  `1` means match and `0` means the letter at that pos doesn't match."
+  [sa sb]
+  (let [max-separation (dec (int (/ (max (count sa) (count sb)) 2)))]
+    (map-indexed
+     (fn [i v]
+       (map-indexed
+        (fn [ii vv]
+          (if (and (= v vv) (>= max-separation (abs (- ii i))))
+            1
+            0))
+        sb))
+     sa)))
+
+(defn- count-matching-chars
+  "Number of Jaro's matching chars between 2 words."
+  [sa sb]
+  (reduce (fn [res coll]
+            (+ res (reduce + coll)))
+          0
+          (matching-chars sa sb)))
+
+(defn- transpositions
+  "Number of Jaro's transpositions."
+  [sa sb]
+  (->> (map #(reduce + %) (matching-chars sa sb))
+       (map-indexed #(when (pos? %2) (get sa %1)))
+       (remove nil?)))
+
+;; Jaro word similarity
+(defn- jaro-sim
+  "Jaro similarity between 2 words."
+  [sa sb]
+  )
