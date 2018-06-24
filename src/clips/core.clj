@@ -467,6 +467,15 @@
   [sa sb]
   )
 
+(defn- jaro-sim-formula
+  "Implement the Jaro similarity formula.
+  `m` is the number of matches, `t` is the transpositions,
+  `la` is the length of string a. `lb` is the length of string b."
+  [m t la lb]
+  (if (zero? m)
+    0
+    (double (* (/ 1 3) (+ (/ m la) (/ m lb) (/ (- m t) m))))))
+
 ;; Jaro word similarity
 (defn- jaro-sim
   "Jaro similarity between 2 words."
@@ -476,6 +485,36 @@
         matching-chars-b (extract-matches sb (transpose matching-matrix))
         m (count matching-chars-a)
         t (transpositions matching-chars-a matching-chars-b)]
-    (if (zero? m)
-      0
-      (* (/ 1 3) (+ (/ m (count sa)) (/ m (count sb)) (/ (- m t) m))))))
+    (jaro-sim-formula m t (count sa) (count sb))))
+
+(defn- winkler-prefix
+  "Length of the common prefix in `sa` and `sb`.
+  It has a max of 4."
+  [sa sb]
+  (loop [left 4 cont? true count 0 colla sa collb sb]
+    (if (or (zero? left) (not cont?))
+      count
+      (let [curra (first colla)
+            currb (first collb)]
+        (recur (dec left) (= curra currb) (if (= curra currb) (inc count) count) (next colla) (next collb))))))
+
+(defn- jaro-winkler-formula
+  "Jaro-winkler formula.
+  `sim` is the jaro similarity. `l` is the common prefix.
+  `p` is the scaling factor."
+  [sim l p]
+  (+ sim (* l p (- 1 sim))))
+
+;; Jaro-Winkler word similarity
+(defn- jaro-wrinkler
+  "Jaro-Wrinkler similarity between 2 words."
+  [sa sb]
+  (let [p 0.1
+        matching-matrix (matching-chars sa sb)
+        matching-chars-a (extract-matches sa matching-matrix)
+        matching-chars-b (extract-matches sb (transpose matching-matrix))
+        m (count matching-chars-a)
+        t (transpositions matching-chars-a matching-chars-b)
+        jaro-similarity (jaro-sim-formula m t (count sa) (count sb))
+        l (winkler-prefix sa sb)]
+    (jaro-winkler-formula jaro-similarity l p)))
