@@ -453,20 +453,29 @@
        (remove nil?)
        (reduce str)))
 
-#_(defn- count-transpositions
-  "Add the ")
+(defn- transpositions
+  "The number of matching (but different sequence order) characters
+  divided by 2 defines the number of transpositions."
+  [matches-a matches-b]
+  (/ (->> (map #(when-not (= %1 %2) 1) matches-a matches-b)
+          (remove nil?)
+          (reduce +))
+     2))
 
 (defn- jaro-word-transpositions
   "Number of Jaro's transpositions in strings."
   [sa sb]
-  (let [matching-chars-matrix (matching-chars sa sb)
-        stringa-matching-chars (extract-matches sa matching-chars-matrix)
-        stringb-matching-chars (extract-matches sb (transpose matching-chars-matrix))]
-    
-    [stringa-matching-chars stringb-matching-chars]))
+  )
 
 ;; Jaro word similarity
 (defn- jaro-sim
   "Jaro similarity between 2 words."
   [sa sb]
-  )
+  (let [matching-matrix (matching-chars sa sb)
+        matching-chars-a (extract-matches sa matching-matrix)
+        matching-chars-b (extract-matches sb (transpose matching-matrix))
+        m (count matching-chars-a)
+        t (transpositions matching-chars-a matching-chars-b)]
+    (if (zero? m)
+      0
+      (* (/ 1 3) (+ (/ m (count sa)) (/ m (count sb)) (/ (- m t) m))))))
