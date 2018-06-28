@@ -462,11 +462,6 @@
           (reduce +))
      2))
 
-(defn- jaro-word-transpositions
-  "Number of Jaro's transpositions in strings."
-  [sa sb]
-  )
-
 (defn- jaro-sim-formula
   "Implement the Jaro similarity formula.
   `m` is the number of matches, `t` is the transpositions,
@@ -506,8 +501,8 @@
   (+ sim (* l p (- 1 sim))))
 
 ;; Jaro-Winkler word similarity
-(defn- jaro-wrinkler
-  "Jaro-Wrinkler similarity between 2 words."
+(defn- jaro-winkler
+  "Jaro-Winkler similarity between 2 words."
   [sa sb]
   (let [p 0.1
         matching-matrix (matching-chars sa sb)
@@ -518,3 +513,20 @@
         jaro-similarity (jaro-sim-formula m t (count sa) (count sb))
         l (winkler-prefix sa sb)]
     (jaro-winkler-formula jaro-similarity l p)))
+
+;;; Session 28/06/2018
+
+(defn- similar
+  "Return `true` when jaro-winkler >= `threshold`, `false` otherwsie."
+  [threshold sa sb]
+  (>= (jaro-winkler (clojure.string/lower-case sa) (clojure.string/lower-case sb)) threshold))
+
+(defn- c1
+  "Levenshtein distance indicator function."
+  [sa sb]
+  (if (similar 0.95 sa sb)
+    0
+    1))
+
+;; All jaro-winkler functions could work for sentences with minor changes
+;; on the `plumbing` ops such as =, str, etc
