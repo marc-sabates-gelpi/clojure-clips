@@ -1,6 +1,7 @@
 (ns clips.core
   (:require [clojure.core.async :as async]
-            [spyscope.core]))
+            [spyscope.core]
+            [clj-memory-meter.core :as mm]))
 
 ;;;; Session 03/08/2018
 
@@ -34,17 +35,39 @@
   (when-let [c (read-char is)]
     (lazy-seq (cons c (lazy-file is)))))
 
-(defn make-file-reader
+(defn read-file
   "Make file reader lazy-list."
   [file-path]
   (lazy-file (FileInputStream. file-path)))
 
-(def f1 (make-file-reader "resources/aoc2016/one"))
-(def day9-file (make-file-reader "resources/aoc2016/day9"))
+(def f1 (read-file "resources/aoc2016/one"))
+(def day9-file (read-file "resources/aoc2016/day9"))
 
 (take 3 f1)
 (reduce str (take 2 day9-file))
 
+;;; Memory measurements
+#_(with-open [rdr (clojure.java.io/reader "resources/aoc2016/day9")]
+  (mm/measure rdr)) ; => 32.8 KB
+
+#_(mm/measure f1) ; => 272 B
+#_(mm/measure day9-file) ; => 272 B
+#_(take 50 day9-file)
+#_(mm/measure day9-file) ; => 5.7 KB
+#_(count day9-file) ; => 14248
+#_(mm/measure day9-file) ; => 1.5 MB
+
+#_(mm/measure (slurp "resources/aoc2016/day9")) ; => 27.9 KB
+#_(count (slurp "resources/aoc2016/day9"))
+
+(mm/measure (read-file "resources/aoc2016/day9")) ; => 272 B
+(mm/measure (take 50 (read-file "resources/aoc2016/day9"))) ; => 352 B
+(mm/measure (reduce str (read-file "resources/aoc2016/day9"))) ; => 27.9 KB
+(let [content (reduce str (read-file "resources/aoc2016/day9"))]
+  (print content)
+  (mm/measure content)) ; => 27.9 B
+;; Clearly 27.9 B vs 1.5 MB is the difference between holding onto the
+;; head of a lazy seq or not!
+
 ;;; AoC 2016 Day 9 Part 1
-(with-open [rdr (clojure.java.io/reader "resources/aoc2016/day9")]
-  (nth rdr 2))
+(let [day9 (read-file "resources/aoc2016/day9")])
