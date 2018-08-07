@@ -69,5 +69,16 @@
 ;; Clearly 27.9 B vs 1.5 MB is the difference between holding onto the
 ;; head of a lazy seq or not!
 
+(require '[cemerick.url :refer (url url-encode)])
+(-> (url "https://www.host.domain/path" "path2" "path3")
+    (assoc-in [:query :session-id] "session-id with=encodable&characters")
+    str)
+
+(-> (url "https://www.host.domain/path" "path2" "path3")
+    (assoc :query {"session-id" "session-id with=encodable&characters"})
+    str)
+
+(= *1 *2) ; => true
+
 ;;; AoC 2016 Day 9 Part 1
-(let [day9 (read-file "resources/aoc2016/day9")])
+(reduce (comp ) {:} (read-file "resources/aoc2016/day9"))
