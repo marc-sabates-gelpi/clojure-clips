@@ -1,8 +1,9 @@
 (ns clips.core
   (:require [clojure.core.async :as async]
-            [spyscope.core]
+            [clojure.edn :as edn]
+            [clojure.string :as string]
             [clj-memory-meter.core :as mm]
-            [clojure.string :as string]))
+            [spyscope.core]))
 
 ;;; AoC 2016 Day 9 Part 1
 (defn uncompress
@@ -38,3 +39,33 @@
 (str-and-count (day9-1 "(6x1)(1x3)A"))
 (str-and-count (day9-1 "X(8x2)(3x3)ABCY"))
 (str-and-count (day9-1 "resources/aoc2016/day9"))
+
+;;; Aoc 2016 Day 9 Part 2
+(defn text-or-nil
+  "Return the `text` if it is not blank; return nil otherwise."
+  [text]
+  (when (seq text)
+    text))
+
+(defn marker
+  "Return a map with `times`, `text` and `remainder` of a marker if it exists.
+  otherwise return a map with `pre`(next potential marker) and `remainder`."
+  [text]
+  (if-let [[marker len times] (re-find #"^\(([0-9]+)[Xx]([0-9]+)\)" text)]
+    (let [len (edn/read-string len)
+          times (edn/read-string times)
+          rest-len (+ (count marker) len)
+          remainder (text-or-nil (subs text rest-len))]
+      (cond-> {:times times
+               :text (subs text (count marker) rest-len)}
+         remainder (assoc :remainder remainder)))
+    (let [pre (-> text
+                  (string/split #"\(")
+                  first
+                  text-or-nil)
+          remainder (-> text
+                        (subs (count pre))
+                        text-or-nil)]
+      (cond-> {}
+        pre (assoc :pre pre)
+        remainder (assoc :remainder remainder)))))
