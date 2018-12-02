@@ -69,3 +69,29 @@
       (cond-> {}
         pre (assoc :pre pre)
         remainder (assoc :remainder remainder)))))
+
+(defn deep-process
+  "Expand the first marker down to plain text."
+  [input]
+  (loop [remainder input output {}]
+    (if (seq remainder)
+      (let [{:keys [text times remainder pre]} (marker remainder)]
+        (if (and pre remainder)
+          (recur )))
+      output)))
+
+(defn day9-2
+  [in]
+  (let [initial-input (if (string/index-of in "resources/") (slurp in) in)]
+    (loop [input initial-input output nil]
+      (if (seq input)
+        (let [{:keys [remainder text]} (deep-process input)]
+          (recur remainder (str output text)))
+        output))))
+
+;;; AoC 2018 Day 1 Part 1
+(->> "resources/aoc2018/day1"
+    slurp
+    string/split-lines
+    (transduce (comp (map clojure.edn/read-string)) +))
+
