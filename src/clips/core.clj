@@ -95,3 +95,35 @@
     string/split-lines
     (transduce (comp (map clojure.edn/read-string)) +))
 
+;;; AoC 2018 Day 1 Part 2
+(defn make-infinite-scroll
+  [original]
+  (letfn [(infinite-scroll
+            [[head & tail]]
+             (lazy-seq (cons head (if (empty? tail)
+                                    (infinite-scroll original)
+                                    (infinite-scroll tail)))))]
+    (infinite-scroll original)))
+
+(defn aoc2018-day1-2
+  ([] (->> "resources/aoc2018/day1"
+           slurp
+           string/split-lines
+           (map clojure.edn/read-string)
+           aoc2018-day1-2))
+  ([freqs] (loop [prev-freqs #{0}
+                  freq-changes (make-infinite-scroll freqs)
+                  last-freq 0]
+             (let [current-freq (+ (first freq-changes) last-freq)]
+               (if (some #{current-freq} prev-freqs)
+                 current-freq
+                 (recur (conj prev-freqs current-freq)
+                        (next freq-changes)
+                        current-freq))))))
+
+(aoc2018-day1-2 '(+1, -2, +3, +1)) ;; => 2
+(aoc2018-day1-2 '(+1, -1)) ;; => 0
+(aoc2018-day1-2 '(+3, +3, +4, -2, -4)) ;; => 10
+(aoc2018-day1-2 '(-6, +3, +8, +5, -6)) ;; => 5
+(aoc2018-day1-2 '(+7, +7, -2, -7, -4)) ;; => 14
+(aoc2018-day1-2) ;; It doesn't finish (at least before losing my patience)
