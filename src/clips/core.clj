@@ -227,3 +227,16 @@
 ;; => 14;; => "Elapsed time: 0.195416 msecs"
 (time (aoc2018-day1-2-3))
 ;; => 566;; => "Elapsed time: 6174.851763 msecs"
+
+;;; AoC 2018 Day 2 Part 1
+(let [ids (->> "resources/aoc2018/day2"
+               slurp
+               string/split-lines
+               (map frequencies))
+      twos (filter #(some #{2} (vals %)) ids)
+      threes (filter #(some #{3} (vals %)) ids)]
+  (* (count twos) (count threes)))
+;; => 7163
+
+;;; AoC 2018 Day 2 Part 2
+
