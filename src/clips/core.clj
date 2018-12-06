@@ -185,15 +185,45 @@
                   (map (partial + jump) freq-changes-from-start)
                   (into prev-freqs freq-changes-from-start)))))))
 
-(aoc2018-day1-2-2 '(+1, -2, +3, +1))
-;; => 2
-(aoc2018-day1-2-2 '(+1, -1))
-;; => 0
-(aoc2018-day1-2-2 '(+3, +3, +4, -2, -4))
-;; => 10
-(aoc2018-day1-2-2 '(-6, +3, +8, +5, -6))
-;; => 5
-(aoc2018-day1-2-2 '(+7, +7, -2, -7, -4))
-;; => 14
-(aoc2018-day1-2-2)
-;; => 566
+(time (aoc2018-day1-2-2 '(+1, -2, +3, +1)))
+;; => 2;; => "Elapsed time: 0.152813 msecs"
+(time (aoc2018-day1-2-2 '(+1, -1)))
+;; => 0;; => "Elapsed time: 0.115099 msecs"
+(time (aoc2018-day1-2-2 '(+3, +3, +4, -2, -4)))
+;; => 10;; => "Elapsed time: 0.140591 msecs"
+(time (aoc2018-day1-2-2 '(-6, +3, +8, +5, -6)))
+;; => 5;; => "Elapsed time: 0.165174 msecs"
+(time (aoc2018-day1-2-2 '(+7, +7, -2, -7, -4)))
+;; => 14;; => "Elapsed time: 0.153162 msecs"
+(time (aoc2018-day1-2-2))
+;; => 566;; => "Elapsed time: 6282.90518 msecs"
+
+(defn aoc2018-day1-2-3
+  ([] (->> "resources/aoc2018/day1"
+           slurp
+           string/split-lines
+           (map clojure.edn/read-string)
+           aoc2018-day1-2-3))
+  ([freqs] (let [jump (reduce + freqs)]
+             (loop [freq-changes-from-start (changes-from-start freqs)
+                   prev-freqs #{0}]
+               (if (some (set freq-changes-from-start) prev-freqs)
+                 (first (sequence (comp (filter prev-freqs)
+                                        (take 1))
+                                  freq-changes-from-start))
+                 (recur
+                  (map (partial + jump) freq-changes-from-start)
+                  (into prev-freqs freq-changes-from-start)))))))
+
+(time (aoc2018-day1-2-3 '(+1, -2, +3, +1)))
+;; => 2;; => "Elapsed time: 0.256597 msecs"
+(time (aoc2018-day1-2-3 '(+1, -1)))
+;; => 0;; => "Elapsed time: 0.168387 msecs"
+(time (aoc2018-day1-2-3 '(+3, +3, +4, -2, -4)))
+;; => 10;; => "Elapsed time: 0.180609 msecs"
+(time (aoc2018-day1-2-3 '(-6, +3, +8, +5, -6)))
+;; => 5;; => "Elapsed time: 0.191505 msecs"
+(time (aoc2018-day1-2-3 '(+7, +7, -2, -7, -4)))
+;; => 14;; => "Elapsed time: 0.195416 msecs"
+(time (aoc2018-day1-2-3))
+;; => 566;; => "Elapsed time: 6174.851763 msecs"
