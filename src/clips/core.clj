@@ -127,3 +127,73 @@
 (aoc2018-day1-2 '(-6, +3, +8, +5, -6)) ;; => 5
 (aoc2018-day1-2 '(+7, +7, -2, -7, -4)) ;; => 14
 (aoc2018-day1-2) ;; It doesn't finish (at least before losing my patience)
+
+(defn changes-from-start
+  "Return the changes from the start instead of from the previous change."
+  [changes]
+  (reduce
+   (fn [res curr]
+     (conj res ((fnil + 0) (last res) curr)))
+   []
+   changes))
+
+(let [from-start (->> "resources/aoc2018/day1"
+                      slurp
+                      string/split-lines
+                      (map clojure.edn/read-string)
+                      changes-from-start)]
+  (prn (apply min from-start)) ;; => -125057
+  (prn (apply max from-start))) ;; => 662
+
+;; Start is 0, 454, 908, ..
+
+(->> "resources/aoc2018/day1"
+     slurp
+     string/split-lines
+     (map clojure.edn/read-string)
+     count)
+;; => 957
+
+(let [from-start (->> "resources/aoc2018/day1"
+                      slurp
+                      string/split-lines
+                      (map clojure.edn/read-string)
+                      changes-from-start)]
+  {:s0 from-start :s1 (mapv (partial + 454) from-start)})
+
+(->> "resources/aoc2018/day1"
+     slurp
+     string/split-lines
+     (map clojure.edn/read-string)
+     changes-from-start
+     sort)
+
+(float (/ 125057 454)) ;; => 275.45593
+
+(defn aoc2018-day1-2-2
+  ([] (->> "resources/aoc2018/day1"
+           slurp
+           string/split-lines
+           (map clojure.edn/read-string)
+           aoc2018-day1-2-2))
+  ([freqs] (let [jump (reduce + freqs)]
+             (loop [freq-changes-from-start (changes-from-start freqs)
+                   prev-freqs #{0}]
+               (if (some (set freq-changes-from-start) prev-freqs)
+                 (first (filter prev-freqs freq-changes-from-start))
+                 (recur
+                  (map (partial + jump) freq-changes-from-start)
+                  (into prev-freqs freq-changes-from-start)))))))
+
+(aoc2018-day1-2-2 '(+1, -2, +3, +1))
+;; => 2
+(aoc2018-day1-2-2 '(+1, -1))
+;; => 0
+(aoc2018-day1-2-2 '(+3, +3, +4, -2, -4))
+;; => 10
+(aoc2018-day1-2-2 '(-6, +3, +8, +5, -6))
+;; => 5
+(aoc2018-day1-2-2 '(+7, +7, -2, -7, -4))
+;; => 14
+(aoc2018-day1-2-2)
+;; => 566
