@@ -240,3 +240,25 @@
 
 ;;; AoC 2018 Day 2 Part 2
 
+(defn distance
+  [string-a string-b]
+  (apply + (map (fn [char-a char-b]
+                  (if (= char-a char-b)
+                    0
+                    1)) string-a string-b)))
+
+(defn different-letters
+  [[string-a string-b]]
+  (->> (map (fn [char-a char-b] (when (= char-a char-b) char-a)) string-a string-b)
+       (remove nil?)
+       (apply str)))
+
+(->> "resources/aoc2018/day2"
+     slurp
+     string/split-lines
+     sort
+     (partition 2 1)
+     (filter (fn [[a b]] (= 1 (distance a b))))
+     first
+     different-letters)
+;; => ighfbyijnoumxjlxevacpwqtr
