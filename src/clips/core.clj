@@ -262,3 +262,33 @@
      first
      different-letters)
 ;; => ighfbyijnoumxjlxevacpwqtr
+
+;;; Aoc 2018 Day 3 Part 1
+(defn create-area
+  "Create an area.
+  An `area` is represented by a collection of `space`s.
+  A `space` is represented by a vector of [column row].
+  Rows and columns go from 0 .. n-1."
+  [[start-column start-row] width height]
+  (for [x (range start-column (+ start-column width))
+        y (range start-row (+ start-row height))]
+    [x y]))
+
+(defn aoc2018-day3-part1
+  []
+  (->> "resources/aoc2018/day3"
+       slurp
+       string/split-lines
+       (transduce
+        (comp (map #(re-find #"@ (\d+),(\d+): (\d+)x(\d+)" %))
+              (map (fn [[_ x y w h]] [[(clojure.edn/read-string x) (clojure.edn/read-string y)] (clojure.edn/read-string w) (clojure.edn/read-string h)]))
+              (map #(apply create-area %)))
+        into
+        '())
+       frequencies
+       (filter (fn [[space freq]] (<= 2 freq)))
+       keys
+       count))
+
+(aoc2018-day3-part1)
+;; => 109716
