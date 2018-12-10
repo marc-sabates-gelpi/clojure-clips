@@ -359,8 +359,30 @@
                          (map :space)
                          frequencies
                          (filter (fn [[space freq]] (<= 2 freq)))
-                         keys)];; => #{124}
+                         keys)]
     (time (no-overlapping-ids overlapping spaces-id))))
 
 (aoc2018-day3-part2-2)
 ;; => #{124};; => "Elapsed time: 143092.900008 msecs"
+
+;;; AoC 2018 Day 4 Part 1
+(defn parse-minutes
+  [minute]
+  (if-let [[_ minute-one-digit] (re-find #"0(\d)" minute)]
+    (clojure.edn/read-string minute-one-digit)
+    (clojure.edn/read-string minute)))
+
+(defn aoc2018-day4-part1
+  []
+  (->> "resources/aoc2018/day4"
+       slurp
+       string/split-lines
+       (sequence (comp
+                  (map #(re-find #"\[(\d\d\d\d-\d\d-\d\d) (\d\d):(\d\d)\] (.+)" %))
+                  (map (fn [[_ date hour minute action]]
+                         {:date-and-time (str date " " hour ":" minute)
+                          :minute (parse-minutes minute)
+                          :action (string/trim action)}))))
+       (sort-by :date-and-time)))
+
+(aoc2018-day4-part1)
