@@ -292,3 +292,75 @@
 
 (aoc2018-day3-part1)
 ;; => 109716
+
+;;; AoC 2018 Day 3 Part 2
+(defn create-area-part2
+  "Create an area.
+  An `area` is represented by a collection of `space`s.
+  A `space` is represented by a vector of [column row].
+  Rows and columns go from 0 .. n-1."
+  [id [start-column start-row] width height]
+  (for [x (range start-column (+ start-column width))
+        y (range start-row (+ start-row height))]
+    {:id id :space [x y]}))
+
+(defn aoc2018-day3-part2
+  []
+  (let [spaces-id (->> "resources/aoc2018/day3"
+                       slurp
+                       string/split-lines
+                       (transduce
+                        (comp (map #(re-find #"#(\d+) @ (\d+),(\d+): (\d+)x(\d+)" %))
+                              (map (fn [[_ id x y w h]] [(clojure.edn/read-string id) [(clojure.edn/read-string x) (clojure.edn/read-string y)] (clojure.edn/read-string w) (clojure.edn/read-string h)]))
+                              (map #(apply create-area-part2 %)))
+                        into
+                        '()))
+        ids (->> spaces-id
+                 (map :id)
+                 set)
+        overlapping (->> spaces-id
+                         (map :space)
+                         frequencies
+                         (filter (fn [[space freq]] (<= 2 freq)))
+                         keys)
+        overlapping-ids (->> spaces-id
+                             (filter (fn [{:keys [space]}] (some #{space} overlapping)))
+                             (map :id)
+                             set)]
+    (clojure.set/difference ids overlapping-ids)))
+(aoc2018-day3-part2) ;; => Never finishes
+
+(defn no-overlapping-ids
+  [overlapping spaces-id]
+  (let [overlapping (set overlapping)]
+    (loop [result (->> spaces-id
+                      (map :id)
+                      set)
+          spaces-id-to-double-check spaces-id]
+     (if (seq spaces-id-to-double-check)
+       (let [{:keys [id space]} (first spaces-id-to-double-check)]
+         (if (overlapping space)
+           (recur (disj result id) (remove #(= id (:id %)) (next spaces-id-to-double-check)))
+           (recur result (next spaces-id-to-double-check))))
+       result))))
+
+(defn aoc2018-day3-part2-2
+  []
+  (let [spaces-id (->> "resources/aoc2018/day3"
+                       slurp
+                       string/split-lines
+                       (transduce
+                        (comp (map #(re-find #"#(\d+) @ (\d+),(\d+): (\d+)x(\d+)" %))
+                              (map (fn [[_ id x y w h]] [(clojure.edn/read-string id) [(clojure.edn/read-string x) (clojure.edn/read-string y)] (clojure.edn/read-string w) (clojure.edn/read-string h)]))
+                              (map #(apply create-area-part2 %)))
+                        into
+                        '()))
+        overlapping (->> spaces-id
+                         (map :space)
+                         frequencies
+                         (filter (fn [[space freq]] (<= 2 freq)))
+                         keys)];; => #{124}
+    (time (no-overlapping-ids overlapping spaces-id))))
+
+(aoc2018-day3-part2-2)
+;; => #{124};; => "Elapsed time: 143092.900008 msecs"
