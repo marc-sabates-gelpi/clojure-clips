@@ -372,17 +372,118 @@
     (clojure.edn/read-string minute-one-digit)
     (clojure.edn/read-string minute)))
 
-(defn aoc2018-day4-part1
-  []
-  (->> "resources/aoc2018/day4"
-       slurp
-       string/split-lines
-       (sequence (comp
-                  (map #(re-find #"\[(\d\d\d\d-\d\d-\d\d) (\d\d):(\d\d)\] (.+)" %))
-                  (map (fn [[_ date hour minute action]]
-                         {:date-and-time (str date " " hour ":" minute)
-                          :minute (parse-minutes minute)
-                          :action (string/trim action)}))))
-       (sort-by :date-and-time)))
+(defn parse-action
+  [{:keys [action] :as entry}]
+  (condp re-find action
+    #"wakes up" (assoc entry :action :wake-up)
+    #"falls asleep" (assoc entry :action :sleep)
+    #"Guard #(\d+) begins shift" :>> (fn [[_ id]]
+                                       (-> entry
+                                          (assoc :action :begin)
+                                          (assoc :id (clojure.edn/read-string id))))
+    #"stop" (assoc entry :action :stop)))
 
-(aoc2018-day4-part1)
+(defmulti state-machine
+  "Assumption: There are no inconsistent states, i.e. shift begins -> wakes up."
+  (fn [_ {:keys [action]}] action))
+
+(defmethod state-machine :begin
+  [{:keys [current] :as state} {:keys [id]}]
+  (let [closed (some-> current
+                       (update (get-in current [:prev :type]) conj (range (get-in current [:prev :time]) 60))
+                       (dissoc :prev))
+        new-state (assoc state :current {:prev {:time 0
+                                                :type :wake-up}
+                                         :id id})]
+    (if closed
+      (update new-state :history conj closed)
+      new-state)))
+
+(defmethod state-machine :sleep
+  [{:keys [current] :as state} {:keys [minute]}]
+  (let [updated-current (-> current
+                            (update :wake-up conj (range (get-in current [:prev :time]) minute))
+                            (assoc :prev {:time minute
+                                          :type :sleep}))]
+    (assoc state :current updated-current)))
+
+(defmethod state-machine :wake-up
+  [{:keys [current] :as state} {:keys [minute]}]
+  (let [updated-current (-> current
+                            (update :sleep conj (range (get-in current [:prev :time]) minute))
+                            (assoc :prev {:time minute
+                                          :type :wake-up}))]
+    (assoc state :current updated-current)))
+
+(defmethod state-machine :stop
+  [{:keys [current history] :as state} _]
+  (let [closed (some-> current
+                       (update (get-in current [:prev :type]) conj (range (get-in current [:prev :time]) 60))
+                       (dissoc :prev))]
+    (if closed
+      (conj history closed)
+      history)))
+
+(defn find-uber-sleeper
+  [figures]
+  (->> figures
+       (map (fn [[k v]]
+              [k (reduce
+                  (fn [total {:keys [sleep]}]
+                    (apply + total (map count sleep)))
+                  0
+                  v)]))
+       (sort-by second)
+       last
+       first))
+
+(defn aoc2018-day4-part1
+  ([]
+   (-> "resources/aoc2018/day4"
+       slurp
+       aoc2018-day4-part1))
+  ([text]
+   (let [guard-figures (->> text
+                            string/split-lines
+                            (sequence (comp
+                                       (map #(re-find #"\[(\d\d\d\d-\d\d-\d\d) (\d\d):(\d\d)\] (.+)" %))
+                                       (map (fn [[_ date hour minute action]]
+                                              {:date-and-time (str date " " hour ":" minute)
+                                               :minute (parse-minutes minute)
+                                               :action (string/trim action)}))))
+                            (#(conj % {:date-and-time "9999-12-31 23:59"
+                                       :action "stop"}))
+                            (sort-by :date-and-time)
+                            (transduce (map parse-action) (completing state-machine) {})
+                            (group-by :id))
+         uber-sleeper (find-uber-sleeper guard-figures)]
+     (->> (get guard-figures uber-sleeper)
+          (mapcat :sleep)
+          (reduce into)
+          frequencies
+          (sort-by val)
+          last
+          key
+          (* uber-sleeper))))) 
+
+(-> "[1518-11-01 00:00] Guard #10 begins shift
+[1518-11-01 00:05] falls asleep
+[1518-11-01 00:25] wakes up
+[1518-11-01 00:30] falls asleep
+[1518-11-01 00:55] wakes up
+[1518-11-01 23:58] Guard #99 begins shift
+[1518-11-02 00:40] falls asleep
+[1518-11-02 00:50] wakes up
+[1518-11-03 00:05] Guard #10 begins shift
+[1518-11-03 00:24] falls asleep
+[1518-11-03 00:29] wakes up
+[1518-11-04 00:02] Guard #99 begins shift
+[1518-11-04 00:36] falls asleep
+[1518-11-04 00:46] wakes up
+[1518-11-05 00:03] Guard #99 begins shift
+[1518-11-05 00:45] falls asleep
+[1518-11-05 00:55] wakes up"
+    aoc2018-day4-part1)
+;; => 240
+
+(aoc2018-day4-part1);; => 103720
