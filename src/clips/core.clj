@@ -487,3 +487,60 @@
 ;; => 240
 
 (aoc2018-day4-part1);; => 103720
+
+;;; AoC 2018 Day 4 Part 2
+
+(defn aoc2018-day4-part2
+  ([]
+   (-> "resources/aoc2018/day4"
+       slurp
+       aoc2018-day4-part2))
+  ([text]
+   (->> text
+        string/split-lines
+        (sequence (comp
+                   (map #(re-find #"\[(\d\d\d\d-\d\d-\d\d) (\d\d):(\d\d)\] (.+)" %))
+                   (map (fn [[_ date hour minute action]]
+                          {:date-and-time (str date " " hour ":" minute)
+                           :minute (parse-minutes minute)
+                           :action (string/trim action)}))))
+        (#(conj % {:date-and-time "9999-12-31 23:59"
+                   :action "stop"}))
+        (sort-by :date-and-time)
+        (transduce (map parse-action) (completing state-machine) {})
+        (group-by :id)
+        (sequence (comp
+                   (map (fn [[k v]]
+                          {:id k :minutes (reduce into '() (mapcat (comp concat :sleep) v))}))
+                   (map #(update % :minutes frequencies))
+                   (map #(update % :minutes (partial map (fn [[k v]] [k v]))))
+                   (map #(update % :minutes (partial sort-by second)))
+                   (map #(update % :minutes last))))
+        (sort-by (fn [{[_ freq] :minutes}]
+                   freq))
+        last
+        ((fn [{[m _] :minutes :keys [id]}]
+           (* id m))))))
+
+(-> "[1518-11-01 00:00] Guard #10 begins shift
+[1518-11-01 00:05] falls asleep
+[1518-11-01 00:25] wakes up
+[1518-11-01 00:30] falls asleep
+[1518-11-01 00:55] wakes up
+[1518-11-01 23:58] Guard #99 begins shift
+[1518-11-02 00:40] falls asleep
+[1518-11-02 00:50] wakes up
+[1518-11-03 00:05] Guard #10 begins shift
+[1518-11-03 00:24] falls asleep
+[1518-11-03 00:29] wakes up
+[1518-11-04 00:02] Guard #99 begins shift
+[1518-11-04 00:36] falls asleep
+[1518-11-04 00:46] wakes up
+[1518-11-05 00:03] Guard #99 begins shift
+[1518-11-05 00:45] falls asleep
+[1518-11-05 00:55] wakes up"
+    aoc2018-day4-part2)
+;; => 4455
+
+(aoc2018-day4-part2)
+;; => 110913
