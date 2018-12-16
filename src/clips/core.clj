@@ -544,3 +544,63 @@
 
 (aoc2018-day4-part2)
 ;; => 110913
+
+;;; AoC 2018 Day 5 Part 1
+(slurp "resources/aoc2018/day5")
+
+(with-open [r (clojure.java.io/reader "resources/aoc2018/day5")]
+  (let [file (line-seq r)]
+    (run! prn file)))
+
+(defn abs
+  [n]
+  (if (> 0 n)
+    (* -1 n)
+    n))
+
+(defn react?
+  [a b]
+  (and (not (nil? a)) (= 32 (abs (- (int a) (int b))))))
+
+(defn react
+  [resulting-coll current-unit]
+  (let [prev-unit (last resulting-coll)]
+    (if (react? prev-unit current-unit)
+      (vec (butlast resulting-coll))
+      (conj resulting-coll current-unit))))
+
+(defn aoc2018-day5-part1
+  ([] (-> "resources/aoc2018/day5"
+          slurp
+          aoc2018-day5-part1))
+  ([coll]
+   (count (reduce (fnil react []) nil coll))))
+
+(aoc2018-day5-part1 "dabAcCaCBAcCcaDA")
+;; => 10
+
+(time (aoc2018-day5-part1))
+;; => 9238;; => "Elapsed time: 41315.801065 msecs"
+
+;;; AoC2018 Day 5 Part 2
+(defn test-unit
+  [coll unit]
+  (->> coll
+       (remove #(= (first (string/lower-case %)) unit) )
+       aoc2018-day5-part1))
+
+(defn aoc2018-day5-part2
+  ([] (-> "resources/aoc2018/day5"
+          slurp
+          aoc2018-day5-part2))
+  ([coll]
+   (->> (map char (range (int \a) (inc (int \z))))
+        (pmap (partial test-unit coll))
+        sort
+        first)))
+
+(time (aoc2018-day5-part2 "dabAcCaCBAcCcaDA"))
+;; => 4;; => "Elapsed time: 8.282688 msecs"
+
+(time (aoc2018-day5-part2))
+;; => 4052;; => "Elapsed time: 611012.228307 msecs"
