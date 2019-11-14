@@ -1,9 +1,10 @@
 (ns clips.core
-  (:require [clojure.core.async :as async]
-            [clojure.edn :as edn]
-            [clojure.string :as string]
-            [clj-memory-meter.core :as mm]
-            [spyscope.core]))
+  (:require #_[clojure.core.async :as async]
+    [clj-memory-meter.core :as mm]
+    [clojure.edn :as edn]
+    [clojure.repl]
+    [clojure.string :as string]
+    [spyscope.core]))
 
 ;;;; Session 25/04/2019
 
@@ -160,3 +161,12 @@ clojure.core/default-data-readers;; => {uuid #'clojure.uuid/default-uuid-reader,
          (let [~ref-symbol# (~xf# ~ref-symbol#)]
            ~branch1#)
          ~branch2#))))
+
+;;;; Session 14/11/2019
+
+(let [f inc]
+  (into {} (map (juxt key (comp f val))) {:a 1 :b 2}))
+
+(defn sexy-apply-f
+  [f m]
+  (into {} (map (juxt key (comp f val))) m))
