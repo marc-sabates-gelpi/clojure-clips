@@ -78,3 +78,26 @@
 #_(= (:code (part1 [2, 4, 4, 5, 99, 0])) [2,4,4,5,99,9801])
 #_(= (:code (part1 [1, 1, 1, 4, 99, 5, 6, 0, 99])) [30,1,1,4,2,5,6,0,99])
 #_(part1 "resources/aoc2019/day2")
+
+;;;; Part 2
+(defn test-noun-verb-ranges
+  "Return a collection of maps with keys `n`, `v`, `result`."
+  [max-noun max-verb memory]
+  (for [n (range (inc max-noun)) v (range (inc max-verb))
+        :let [res (-> memory (make-machine n v) run-machine)]]
+    {:n      n
+     :v      v
+     :result (get-in res [:code 0])}))
+
+(defn part2
+  []
+  (->> "resources/aoc2019/day2"
+       slurp
+       str-coll->str-vec
+       edn/read-string
+       (test-noun-verb-ranges 100 100)
+       (filter (comp #{19690720} :result))))
+
+;(part2)
+;=> ({:n 80, :v 18, :result 19690720})
+
