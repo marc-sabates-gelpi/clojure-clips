@@ -1,4 +1,5 @@
 {:deps
  {org.clojure/core.async {:mvn/version "0.4.490"}
   com.clojure-goes-fast/clj-memory-meter {:mvn/version "0.1.2"}
-  spyscope {:mvn/version "0.1.6"}}}
+  spyscope {:mvn/version "0.1.6"}
+  com.taoensso/timbre {:mvn/version "4.10.0"}}}
