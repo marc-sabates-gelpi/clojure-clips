@@ -183,4 +183,14 @@ clojure.core/default-data-readers                           ;; => {uuid #'clojur
      type)
 ;=> clojure.lang.PersistentHashMap
 
+;;;; Session 03/02/2020
+;; Wes Hall  12:20
+(defn seq->map
+  [s key-fn val-fn]
+  (reduce #(assoc %1 (key-fn %2) (val-fn %2)) {} s))
 
+;; Proposal
+(defn my-seq->map
+  [s key-fn val-fn]
+  (into {} (map (juxt key-fn val-fn) s)))
+;; Darn! minimal came up with the same..
