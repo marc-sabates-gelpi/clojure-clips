@@ -193,4 +193,17 @@ clojure.core/default-data-readers                           ;; => {uuid #'clojur
 (defn my-seq->map
   [s key-fn val-fn]
   (into {} (map (juxt key-fn val-fn) s)))
-;; Darn! minimal came up with the same..
+;; Darn!
+
+;;;; Session 14/02/2020
+;; RCFOTD - peterwestmacott
+(let [{:keys [name ns arglists doc]} (->> (all-ns)
+                                          (filter #(-> % str (clojure.string/starts-with? "clojure")))
+                                          (mapcat ns-publics)
+                                          vals
+                                          (map meta)
+                                          (filter :arglists)
+                                          rand-nth)]
+  (println (str ns "/" name "\n"
+                arglists "\n"
+                doc)))
