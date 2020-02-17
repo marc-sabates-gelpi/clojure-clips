@@ -207,3 +207,102 @@ clojure.core/default-data-readers                           ;; => {uuid #'clojur
   (println (str ns "/" name "\n"
                 arglists "\n"
                 doc)))
+
+;;;; Session 17/02/2020
+(#{1 2 3} 3)
+;=> 3
+(#{1 2 3})
+;Execution error (ArityException) at clips.core/eval1961 (core.clj:213).
+;Wrong number of args (0) passed to: clojure.lang.PersistentHashSet
+([1 2 3] 1)
+;=> 2
+([1 2 3])
+;Execution error (ArityException) at clips.core/eval1969 (core.clj:215).
+;Wrong number of args (0) passed to: clojure.lang.PersistentVector
+('(1 2 3) 1)
+;Execution error (ClassCastException) at clips.core/eval1973 (core.clj:222).
+;class clojure.lang.PersistentList cannot be cast to class clojure.lang.IFn (clojure.lang.PersistentList and clojure.lang.IFn are in unnamed module of loader 'app')
+('(1 2 3))
+;Execution error (ClassCastException) at clips.core/eval1977 (core.clj:223).
+;class clojure.lang.PersistentList cannot be cast to class clojure.lang.IFn (clojure.lang.PersistentList and clojure.lang.IFn are in unnamed module of loader 'app')
+(defn my-rand [seed]
+  (lazy-seq (cons (Math/abs (Math/sin seed)) (my-rand (inc seed)))))
+;=> #'clips.core/my-rand
+(def my-rand-coll (my-rand 1))
+;=> #'clips.core/my-rand-coll
+(my-rand-coll 2)
+;Execution error (ClassCastException) at clips.core/eval1988 (core.clj:233).
+;class clojure.lang.LazySeq cannot be cast to class clojure.lang.IFn (clojure.lang.LazySeq and clojure.lang.IFn are in unnamed module of loader 'app')
+(my-rand-coll)
+;Execution error (ClassCastException) at clips.core/eval1992 (core.clj:234).
+;class clojure.lang.LazySeq cannot be cast to class clojure.lang.IFn (clojure.lang.LazySeq and clojure.lang.IFn are in unnamed module of loader 'app')
+(defn my-rand-2 []
+  (let [seed (atom 0)]
+    (swap! seed inc)
+    (Math/abs (Math/sin @seed))))
+;=> #'clips.core/my-rand-2
+(take 10 my-rand-coll)
+;=>
+;(0.8414709848078965
+;  0.9092974268256817
+;  0.1411200080598672
+;  0.7568024953079282
+;  0.9589242746631385
+;  0.27941549819892586
+;  0.6569865987187891
+;  0.9893582466233818
+;  0.4121184852417566
+;  0.5440211108893698)
+(repeatedly 10 my-rand-2)
+;=>
+;(0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965)
+(defn make-my-rand-2' []
+  (fn []
+    (let [seed (atom 0)]
+      (swap! seed inc)
+      (Math/abs (Math/sin @seed)))))
+;=> #'clips.core/make-my-rand-2'
+(def my-rand-2' (make-my-rand-2'))
+;=> #'clips.core/my-rand-2'
+(repeatedly 10 my-rand-2')
+;=>
+;(0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965
+;  0.8414709848078965)
+; :thinking-face:
+(defn make-my-rand-2'' []
+  (let [seed (atom 0)]
+    (fn []
+      (swap! seed inc)
+      (Math/abs (Math/sin @seed)))))
+;=> #'clips.core/make-my-rand-2''
+(def my-rand-2'' (make-my-rand-2''))
+;=> #'clips.core/my-rand-2''
+(repeatedly 10 my-rand-2'')
+;=>
+;(0.8414709848078965
+;  0.9092974268256817
+;  0.1411200080598672
+;  0.7568024953079282
+;  0.9589242746631385
+;  0.27941549819892586
+;  0.6569865987187891
+;  0.9893582466233818
+;  0.4121184852417566
+;  0.5440211108893698)
