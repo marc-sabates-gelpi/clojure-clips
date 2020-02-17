@@ -1,5 +1,7 @@
 {:deps
- {org.clojure/core.async {:mvn/version "0.4.490"}
+ {org.clojure/core.async                 {:mvn/version "0.4.490"}
   com.clojure-goes-fast/clj-memory-meter {:mvn/version "0.1.2"}
-  spyscope {:mvn/version "0.1.6"}
-  com.taoensso/timbre {:mvn/version "4.10.0"}}}
+  #_#_spyscope                               {:mvn/version "0.1.6"}
+  com.taoensso/timbre                    {:mvn/version "4.10.0"}
+  lambdaisland.regal                     {:git/url "https://github.com/lambdaisland/regal.git"
+                                          :sha     "e179f20a2ec78d47c8c24257e644ac80a70e33cb"}}}

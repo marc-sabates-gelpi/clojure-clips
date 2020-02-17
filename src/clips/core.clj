@@ -4,7 +4,8 @@
     [clojure.edn :as edn]
     [clojure.repl]
     [clojure.string :as string]
-    [spyscope.core]))
+    #_[spyscope.core]
+    [lambdaisland.regal :refer [regex]]))
 
 ;;;; Session 25/04/2019
 
@@ -306,3 +307,20 @@ clojure.core/default-data-readers                           ;; => {uuid #'clojur
 ;  0.9893582466233818
 ;  0.4121184852417566
 ;  0.5440211108893698)
+
+(def r [:cat
+        "</p>"
+        [:* \s]
+        "<p>"])
+;(string/replace #"(?i)</p>\s*<p>" "</p>\n<p>")
+(string/replace "<p>This is a test</p><p>And this is a second paragraph</p>" (regex r) "</p>\n<p>")
+;=> "<p>This is a test</p>\n<p>And this is a second paragraph</p>"
+(string/replace "<p>This is a test</p>    <p>And this is a second paragraph</p>" (regex r) "</p>\n<p>")
+;=> "<p>This is a test</p>    <p>And this is a second paragraph</p>"
+(string/replace "<p>This is a test</p>    <p>And this is a second paragraph</p>"
+                (regex [:cat
+                        "</p>"
+                        [:* \space]
+                        "<p>"])
+                "</p>\n<p>")
+;=> "<p>This is a test</p>\n<p>And this is a second paragraph</p>"
