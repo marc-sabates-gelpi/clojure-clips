@@ -324,3 +324,25 @@ clojure.core/default-data-readers                           ;; => {uuid #'clojur
                         "<p>"])
                 "</p>\n<p>")
 ;=> "<p>This is a test</p>\n<p>And this is a second paragraph</p>"
+
+;; Session 18/02/2020
+;; dharrigan's code:
+(let [app-config {}
+      cleanup-stagnant-data (fn [table _config]
+                              (Thread/sleep 3000)
+                              (array-map table :successful))
+      five-minutes-ms (* 5 60 1000)
+      workers (pmap #(cleanup-stagnant-data % app-config) [:funky-table-1 :funky-table-2 :funky-table-3])]
+  (map #(deref % five-minutes-ms :failure) workers))
+;Error printing return value (ClassCastException) at clojure.core/deref-future (core.clj:2298).
+;class clojure.lang.PersistentArrayMap cannot be cast to class java.util.concurrent.Future (clojure.lang.PersistentArrayMap is in unnamed module of loader 'app'; java.util.concurrent.Future is in module java.base of loader 'bootstrap')
+
+(get #{1 2 3} 1 :not-found)
+;=> 1
+(get #{1 2 3} 0 :not-found)
+;=> :not-found
+(#{1 2 3} 1)
+;=> 1
+(#{1 2 3} 0 :not-found)
+;Execution error (ArityException) at clips.core/eval2316 (form-init12214707321052361609.clj:1).
+;Wrong number of args (2) passed to: clojure.lang.PersistentHashSet
