@@ -346,3 +346,86 @@ clojure.core/default-data-readers                           ;; => {uuid #'clojur
 (#{1 2 3} 0 :not-found)
 ;Execution error (ArityException) at clips.core/eval2316 (form-init12214707321052361609.clj:1).
 ;Wrong number of args (2) passed to: clojure.lang.PersistentHashSet
+
+;;;; Session 19/02/2020
+(defn ls1 [seed]
+  (println "---> ls1 " seed)
+  (when (pos? seed)
+    (cons seed (ls1 (dec seed)))))
+
+(defn ls2 [seed]
+  (println "---> ls2 " seed)
+  (when (pos? seed)
+    (cons seed (ls2 (dec seed)))))
+
+(def ls-test (lazy-seq (ls1 15) (ls2 20)))
+
+(take 1 ls-test)
+;---> ls1  15
+;---> ls1  14
+;---> ls1  13
+;---> ls1  12
+;---> ls1  11
+;---> ls1  10
+;---> ls1  9
+;---> ls1  8
+;---> ls1  7
+;---> ls1  6
+;---> ls1  5
+;---> ls1  4
+;---> ls1  3
+;---> ls1  2
+;---> ls1  1
+;---> ls1  0
+;---> ls2  20
+;---> ls2  19
+;---> ls2  18
+;---> ls2  17
+;---> ls2  16
+;---> ls2  15
+;---> ls2  14
+;---> ls2  13
+;---> ls2  12
+;---> ls2  11
+;---> ls2  10
+;---> ls2  9
+;---> ls2  8
+;---> ls2  7
+;---> ls2  6
+;---> ls2  5
+;---> ls2  4
+;---> ls2  3
+;---> ls2  2
+;---> ls2  1
+;---> ls2  0
+;=> (20)
+
+(def ls-test (lazy-cat (ls1 10) (ls2 20)))  ;; `lazy-cat` you idiot, not `lazy-seq` :grinning:
+
+(take 1 ls-test)
+;---> ls1  10
+;---> ls1  9
+;---> ls1  8
+;---> ls1  7
+;---> ls1  6
+;---> ls1  5
+;---> ls1  4
+;---> ls1  3
+;---> ls1  2
+;---> ls1  1
+;---> ls1  0
+;=> (10)
+
+(into-array [1 2 3])
+;=> #object["[Ljava.lang.Long;" 0xf875d12 "[Ljava.lang.Long;@f875d12"]
+(into-array [true false true])
+;=> #object["[Ljava.lang.Boolean;" 0x46408b05 "[Ljava.lang.Boolean;@46408b05"]
+(aset-boolean (into-array [true false true]) 1 2 false)
+;Execution error (IllegalArgumentException) at java.lang.reflect.Array/setBoolean (Array.java:-2).
+;Argument is not an array
+(let [bs (boolean-array 3)]
+  (aset-boolean bs 2 true)
+  (vec bs))
+;=> [false false true]
+:thinking_face:
+
