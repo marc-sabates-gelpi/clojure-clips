@@ -11,14 +11,14 @@
     (- x)
     x))
 
-(defn- d
-  [a b]
-  (+ (abs (- (:x a) (:x b)))
-     (abs (- (:y a) (:y b)))))
+(defn d
+  [xfn yfn a b]
+  (+ (abs (- (xfn a) (xfn b)))
+     (abs (- (yfn a) (yfn b)))))
 
 (defn- dist-from-origin
   [{:keys [a b] :as _segment}]
-  (min (d {:x 0 :y 0} a) (d {:x 0 :y 0} b)))
+  (min (d :x :y {:x 0 :y 0} a) (d :x :y {:x 0 :y 0} b)))
 
 (defn- add-distance
   [segment]

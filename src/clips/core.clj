@@ -427,5 +427,5 @@ clojure.core/default-data-readers                           ;; => {uuid #'clojur
   (aset-boolean bs 2 true)
   (vec bs))
 ;=> [false false true]
-:thinking_face:
+;:thinking_face:
 
