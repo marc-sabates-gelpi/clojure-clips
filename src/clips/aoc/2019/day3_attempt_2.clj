@@ -40,6 +40,7 @@
     [x y]))
 
 (defn part1
+  "Note: It is wrong because it looks for intersections assuming there was only one wire.."
   ([] (part1 (slurp "resources/aoc2019/day3")))
   ([s]
    (->> s
@@ -56,5 +57,34 @@
 ;=> [317 0]
 ;That's not the right answer; your answer is too low.
 
-; It is wrong because it looks for intersections on only the first wire..
+(defn wire->points
+  [s]
+  (->> s
+       (thread-last-split #",")
+       (reduce make-segment [])
+       (mapcat segment->points)
+       set))
 
+(def ^:private p+d (juxt identity (partial day3/d first last [0 0])))
+
+(defn part1'
+  ([] (part1' (slurp "resources/aoc2019/day3")))
+  ([s]
+   (->> s
+        str/split-lines
+        (mapcat wire->points)
+        frequencies
+        (filter (comp (partial <= 2) val))
+        (map key)
+        (sort-by (partial day3/d first last [0 0]))
+        first
+        p+d)))
+
+;(part1' "R8,U5,L5,D3\nU7,R6,D4,L4")
+;=> [[3 3] 6]
+;(part1' "R75,D30,R83,U83,L12,D49,R71,U7,L72\nU62,R66,U55,R34,D71,R55,D58,R83")
+;=> [[155 4] 159]
+;(part1' "R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51\nU98,R91,D20,R16,D67,R40,U7,R15,U6,R7")
+;=> [[124 11] 135]
+;(part1')
+;=> [[-34 -352] 386]
