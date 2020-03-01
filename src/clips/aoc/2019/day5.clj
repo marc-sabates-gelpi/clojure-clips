@@ -9,10 +9,8 @@
   `code` -> Intcode vector
   `pc` -> Program counter
   `status` -> :standby :running :halted"
-  [code & [noun verb]]
-  {:code   (cond-> code
-                   noun (assoc 1 noun)
-                   verb (assoc 2 verb))
+  [code]
+  {:code   code
    :status :standby
    :pc     0})
 
@@ -57,29 +55,36 @@
     1 get-param-by-value
     get-param-by-ref))
 
+(defn get-param
+  [machine param-num]
+  ((get-param-f machine param-num) machine param-num))
+
 (defmulti intcode-process (fn [{:keys [code pc]}] (rem (nth code pc) 100)))
 
 (defmethod intcode-process 1
   [machine]
   (-> machine
-      (assoc-in [:code (get-result-param machine 2)] (apply + (mapv #((get-param-f machine %) machine %) [1 2])))
+      (assoc-in [:code (get-result-param machine 2)] (apply + (mapv (partial get-param machine) [1 2])))
       (common-instr-update 4)))
 
 (defmethod intcode-process 2
   [machine]
   (-> machine
-      (assoc-in [:code (get-result-param machine 2)] (apply * (mapv #((get-param-f machine %) machine %) [1 2])))
+      (assoc-in [:code (get-result-param machine 2)] (apply * (mapv (partial get-param machine) [1 2])))
       (common-instr-update 4)))
 
 (defmethod intcode-process 3
   [machine]
   (-> machine
-      (assoc-in [:code (get-result-param machine 0)] (edn/read-string (read-line)))
+      (assoc-in [:code (get-result-param machine 0)] (edn/read-string (do
+                                                                        (print "$ Input: ")
+                                                                        (flush)
+                                                                        (read-line))))
       (common-instr-update 2)))
 
 (defmethod intcode-process 4
   [machine]
-  (println (get-in machine [:code (get-result-param machine 0)]))
+  (println (get-param machine 1))
   (common-instr-update machine 2))
 
 (defmethod intcode-process 99
@@ -99,5 +104,56 @@
   (-> (if (string? x)
         (mapv edn/read-string (-> x slurp (string/split #",")))
         x)
-      (make-machine #_12 #_2)
+      make-machine
       run-machine))
+
+;(do (part1 "resources/aoc2019/day5") nil)
+;$ Input: 1
+;0
+;0
+;0
+;0
+;0
+;0
+;0
+;0
+;0
+;5182797
+;=> nil
+
+
+;;;; Part 2
+(defmethod intcode-process 5
+  [machine]
+  (if-not (zero? (get-param machine 1))
+    (-> machine
+        (assoc :pc (get-param machine 2))
+        (assoc :status :running))
+    (common-instr-update machine 3)))
+
+(defmethod intcode-process 6
+  [machine]
+  (if (zero? (get-param machine 1))
+    (-> machine
+        (assoc :pc (get-param machine 2))
+        (assoc :status :running))
+    (common-instr-update machine 3)))
+
+(defmethod intcode-process 7
+  [machine]
+  (-> machine
+      (assoc-in [:code (get-result-param machine 2)] (if (< (get-param machine 1) (get-param machine 2)) 1 0))
+      (common-instr-update 4)))
+
+(defmethod intcode-process 8
+  [machine]
+  (-> machine
+      (assoc-in [:code (get-result-param machine 2)] (if (= (get-param machine 1) (get-param machine 2)) 1 0))
+      (common-instr-update 4)))
+
+(def part2 part1)
+
+;(do (part2 "resources/aoc2019/day5") nil)
+;$ Input: 5
+;12077198
+;=> nil
