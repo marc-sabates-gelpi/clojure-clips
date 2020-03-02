@@ -429,3 +429,9 @@ clojure.core/default-data-readers                           ;; => {uuid #'clojur
 ;=> [false false true]
 ;:thinking_face:
 
+
+;;;; Session 02/03/2020
+
+(not= 1 1 2)
+;=> true
+; Watch out because it doesn't mean all different!
