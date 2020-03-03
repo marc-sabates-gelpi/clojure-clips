@@ -435,3 +435,58 @@ clojure.core/default-data-readers                           ;; => {uuid #'clojur
 (not= 1 1 2)
 ;=> true
 ; Watch out because it doesn't mean all different!
+
+;;;; Session 03/03/2020
+
+;; distinct-with
+(defn distinct-with
+  [f coll]
+  (vals (zipmap (map f coll) coll)))
+
+;(distinct-with odd? (range 10))
+;=> (8 9)
+;(map odd? (range 10))
+;=> (false true false true false true false true false true)
+
+(defn distinct-with2
+  [f coll]
+  (map first (vals (group-by f coll))))
+
+;(distinct-with2 odd? (range 10))
+;=> (0 1)
+
+;(tree-seq seq? identity '((1 2 (3)) (4)))
+;=> (((1 2 (3)) (4)) (1 2 (3)) 1 2 (3) 3 (4) 4)
+;(tree-seq (constantly false) identity '((1 2 (3)) (4)))
+;=> (((1 2 (3)) (4)))
+
+(defn distinct-by
+  "Returns a lazy sequence of the elements of coll, removing any elements that
+  return duplicate values when passed to a function f."
+  ([f]
+   (fn [rf]
+     (let [seen (volatile! #{})]
+       (fn
+         ([] (rf))
+         ([result] (rf result))
+         ([result x]
+          (let [fx (f x)]
+            (if (contains? @seen fx)
+              result
+              (do (vswap! seen conj fx)
+                  (rf result x)))))))))
+  ([f coll]
+   (let [step (fn step [xs seen]
+                (lazy-seq
+                  ((fn [[x :as xs] seen]
+                     (when-let [s (seq xs)]
+                       (let [fx (f x)]
+                         (if (contains? seen fx)
+                           (recur (rest s) seen)
+                           (cons x (step (rest s) (conj seen fx)))))))
+                   xs seen)))]
+     (step coll #{}))))
+
+;(distinct-by odd? (range 10))
+;=> (0 1)
+
