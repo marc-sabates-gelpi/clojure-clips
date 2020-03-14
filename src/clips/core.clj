@@ -2,7 +2,7 @@
   (:require #_[clojure.core.async :as async]
     [clj-memory-meter.core :as mm]
     [clojure.edn :as edn]
-    [clojure.repl]
+    [clojure.repl :refer [:all]]
     [clojure.string :as string]
     #_[spyscope.core]
     [lambdaisland.regal :refer [regex]]))
@@ -490,3 +490,266 @@ clojure.core/default-data-readers                           ;; => {uuid #'clojur
 ;(distinct-by odd? (range 10))
 ;=> (0 1)
 
+;;;; Session 12/03/2020
+(clojure.string/join '(:a "b" \c ["d"]))
+;=> ":abc[\"d\"]"
+(clojure.string/join " " '(:a "b" \c ["d"]))
+;=> ":a b c [\"d\"]"
+
+(let [a (atom 0)]
+  (defn test-my-enclosure [x]
+    (swap! a + x)))
+;=> #'user/test-my-enclosure
+(test-my-enclosure 2)
+;=> 2
+(test-my-enclosure 3)
+;=> 5
+(test-my-enclosure 3)
+;=> 8
+
+4e-2
+;=> 0.04
+
+;;;; Session 13/03/2020
+(ns my.test (:require [lambdaisland.regal :refer [regex]]
+                      [clojure [edn :as edn] repl [string :as str]]))
+;=> nil
+*ns*
+;=> #object[clojure.lang.Namespace 0x22c3ed82 "my.test"]
+regex
+;=> #object[lambdaisland.regal$regex 0x23caefbd "lambdaisland.regal$regex@23caefbd"]
+doc
+;Syntax error compiling at (/tmp/form-init4100735502028150817.clj:1:349).
+;Unable to resolve symbol: doc in this context
+clojure.repl/doc
+;Syntax error compiling at (/tmp/form-init4100735502028150817.clj:1:349).
+;Can't take value of a macro: #'clojure.repl/doc
+apropos
+;Syntax error compiling at (/tmp/form-init4100735502028150817.clj:1:349).
+;Unable to resolve symbol: apropos in this context
+clojure.repl/apropos
+;=> #object[clojure.repl$apropos 0x53518d61 "clojure.repl$apropos@53518d61"]
+edn
+;Syntax error compiling at (/tmp/form-init4100735502028150817.clj:1:349).
+;Unable to resolve symbol: edn in this context
+edn/read-string
+;=> #object[clojure.edn$read_string 0x3880aefa "clojure.edn$read_string@3880aefa"]
+str/reverse
+;=> #object[clojure.string$reverse 0x7e3bc440 "clojure.string$reverse@7e3bc440"]
+(ns my.test (:require [lambdaisland.regal :refer [regex]]
+                      '(clojure [edn :as edn] repl [string :as str])))
+;Syntax error macroexpanding clojure.core/ns at (/tmp/form-init4100735502028150817.clj:1:1).
+;((:require [lambdaisland.regal :refer [regex]] (quote (clojure [edn :as edn] repl [string :as str])))) - failed: Extra input spec: :clojure.core.specs.alpha/ns-form
+(ns my.test (:require [lambdaisland.regal :refer [regex]]
+                      (clojure [edn :as edn] repl [string :as str])))
+;=> nil
+(ns my.test (:require [lambdaisland.regal :refer [regex]]
+                      (clojure [edn :as edn2] [repl :refer [:all]] [string :as str2])))
+;Syntax error macroexpanding clojure.core/ns at (/tmp/form-init4100735502028150817.clj:1:1).
+;((:require [lambdaisland.regal :refer [regex]] (clojure [edn :as edn2] [repl :refer [:all]] [string :as str2]))) - failed: Extra input spec: :clojure.core.specs.alpha/ns-form
+(ns my.test (:require [lambdaisland.regal :refer [regex]]
+                      (clojure [edn :as edn2] [repl :as rpl] [string :as str2])))
+;=> nil
+(ns my.test (:require [lambdaisland.regal :refer [regex]]
+                      (clojure [edn :as edn2 :refer [read-string]] [repl :as rpl] [string :as str2])))
+;WARNING: read-string already refers to: #'clojure.core/read-string in namespace: my.test, being replaced by: #'clojure.edn/read-string
+;=> nil
+(ns my.test (:require [lambdaisland.regal :refer [regex]]
+                      (clojure [edn :as edn2 :refer [read-string]] [repl :as rpl :refer [apropos]] [string :as str2])))
+;WARNING: read-string already refers to: #'clojure.core/read-string in namespace: my.test, being replaced by: #'clojure.edn/read-string
+;=> nil
+(ns my.test (:require [lambdaisland.regal :refer [regex]]
+                      (clojure [edn :as edn2 :refer [read-string]] [repl :as rpl :refer :all] [string :as str2])))
+;WARNING: read-string already refers to: #'clojure.core/read-string in namespace: my.test, being replaced by: #'clojure.edn/read-string
+;=> nil
+str/join
+;=> #object[clojure.string$join 0x4c909edc "clojure.string$join@4c909edc"]
+str2/join
+;=> #object[clojure.string$join 0x4c909edc "clojure.string$join@4c909edc"]
+
+;;;; Session 14/03/2020
+(defn surname-first [[name middlename surname]]
+  (str/join ", " [surname (str/join " " [name middlename])]))
+;=> #'user/surname-first
+(surname-first ["Guy" "Lewis" "Steele"])
+;=> "Steele, Guy Lewis"
+(surname-first ["Guy" nil "Steele"])
+;=> "Steele, Guy "
+(surname-first ["Guy" nil nil])
+;=> ", Guy "
+(surname-first [nil nil "Steele"])
+;=> "Steele,  "
+
+(defn surname-first [[name middlename surname]]
+  (apply str (interpose ", " [surname (apply str (interpose " " [name middlename]))])))
+;=> #'user/surname-first
+(surname-first ["Guy" "Lewis" "Steele"])
+;=> "Steele, Guy Lewis"
+(surname-first ["Guy" nil "Steele"])
+;=> "Steele, Guy "
+(surname-first ["Guy" nil nil])
+;=> ", Guy "
+(surname-first [nil nil "Steele"])
+;=> "Steele,  "
+
+(defn surname-first [[name middlename surname]]
+  (format "%s, %s %s" surname name middlename))
+;=> #'user/surname-first
+(surname-first ["Guy" "Lewis" "Steele"])
+;=> "Steele, Guy Lewis"
+(surname-first ["Guy" nil "Steele"])
+;=> "Steele, Guy null"
+(surname-first ["Guy" nil nil])
+;=> "null, Guy null"
+(surname-first [nil nil "Steele"])
+;=> "Steele, null null"
+
+;; Joy of Clojure proposal
+(defn surname-first [[name middlename surname]]
+  (str surname ", " name " " middlename))
+;=> #'user/surname-first
+(surname-first ["Guy" "Lewis" "Steele"])
+;=> "Steele, Guy Lewis"
+(surname-first ["Guy" nil "Steele"])
+;=> "Steele, Guy "
+(surname-first ["Guy" nil nil])
+;=> ", Guy "
+(surname-first [nil nil "Steele"])
+;=> "Steele,  "
+
+(let [[h & tail] "hello"]
+  {:head h
+   :tail tail})
+;=> {:head \h, :tail (\e \l \l \o)}
+
+(require '[clojure.walk :refer [macroexpand-all]])
+;=> nil
+(macroexpand-all '(fn [[x & more]] x))
+;=>
+;(fn*
+;  ([p__1905]
+;   (let*
+;     [vec__1906
+;      p__1905
+;      seq__1907
+;      (clojure.core/seq vec__1906)
+;      first__1908
+;      (clojure.core/first seq__1907)
+;      seq__1907
+;      (clojure.core/next seq__1907)
+;      x
+;      first__1908
+;      more
+;      seq__1907]
+;     x)))
+
+(macroexpand-all '(let [[fst scd] (re-matcher #"[0-9]+" "19 78 4d no-num F1")]
+                    {:first  fst
+                     :second scd}))
+;=>
+;(let*
+;  [vec__1913
+;   (re-matcher #"[0-9]+" "19 78 4d no-num F1")
+;   fst
+;   (clojure.core/nth vec__1913 0 nil)
+;   scd
+;   (clojure.core/nth vec__1913 1 nil)]
+;  {:first fst, :second scd})
+
+
+(def me-matcher (re-matcher #"([0-9]+)+" "19 78 4d no-num F1"))
+;=> #'user/me-matcher
+(re-find me-matcher)
+;=> ["19" "19"]
+(nth me-matcher 0)
+;=> "19"
+(re-groups me-matcher)
+;=> ["19" "19"]
+(nth me-matcher 1)
+;=> "19"
+(nth me-matcher 2 nil)
+;=> nil
+(let [[fst scd] me-matcher]
+  {:first  fst
+   :second scd})
+;=> {:first "19", :second nil}
+(let [me-matcher2 (re-matcher #"([0-9]+)" "19 78 4d nom-num F1")
+      [fst scd] me-matcher2]
+  {:first  fst
+   :second scd})
+;Execution error (IllegalStateException) at java.util.regex.Matcher/group (Matcher.java:645).
+;No match found
+(let [me-matcher2 (re-matcher #"([0-9]+)" "19 78 4d nom-num F1")
+      _ (re-find me-matcher2)
+      [fst scd] me-matcher2]
+  {:first  fst
+   :second scd})
+;=> {:first "19", :second nil}
+(let [me-matcher2 (re-matcher #"([0-9]+)" "19 78 4d nom-num F1")
+      _ (re-find me-matcher2)
+      _ (re-find me-matcher2)
+      [fst scd] me-matcher2]
+  {:first  fst
+   :second scd})
+;=> {:first "78", :second nil}
+
+;; no groups
+(let [me-matcher2 (re-matcher #"[0-9]+" "19 78 4d nom-num F1")
+      _ (re-find me-matcher2)
+      _ (re-find me-matcher2)
+      [fst scd] me-matcher2]
+  {:first  fst
+   :second scd})
+;=> {:first nil, :second nil}
+
+;; no capturing groups
+(let [me-matcher2 (re-matcher #"(?:[0-9]+)" "19 78 4d nom-num F1")
+      _ (re-find me-matcher2)
+      _ (re-find me-matcher2)
+      [fst scd] me-matcher2]
+  {:first  fst
+   :second scd})
+;=> {:first nil, :second nil}
+
+;; I am a bit tired of these matchers
+;; This doesn't seem to make any sense to me..
+(macroexpand-all '(let [person-matcher (re-matcher #"(\w+)\s(\w+)\s(\d+)\s?" "John Smith 21\nJane Doe 42")
+                        _              (re-find person-matcher)
+                        [_ name surname age] person-matcher]
+                    {:name    name
+                     :surname surname
+                     :age     age}))
+;=>
+;(let*
+;  [person-matcher
+;   (re-matcher #"(\w+)\s(\w+)\s(\d+)\s?" "John Smith 21\nJane Doe 42")
+;   _
+;   (re-find person-matcher)
+;   vec__2152
+;   person-matcher
+;   _
+;   (clojure.core/nth vec__2152 0 nil)
+;   name
+;   (clojure.core/nth vec__2152 1 nil)
+;   surname
+;   (clojure.core/nth vec__2152 2 nil)
+;   age
+;   (clojure.core/nth vec__2152 3 nil)]
+;  {:name name, :surname surname, :age age})
+(let [person-matcher (re-matcher #"(\w+)\s(\w+)\s(\d+)\s?" "John Smith 21\nJane Doe 42")
+      _              (re-find person-matcher)
+      [_ name surname age] person-matcher]
+  {:name    name
+   :surname surname
+   :age     age})
+;=> {:name "John", :surname "Smith", :age nil}
+(let [person-matcher (re-matcher #"(\w+)\s(\w+)\s(\d+)\s?" "John Smith 21\nJane Doe 42")
+      _              (re-find person-matcher)
+      [_ name surname age] person-matcher]
+  #_{:name    name
+     :surname surname
+     :age     age}
+  (nth person-matcher 3))
+;=> "21"
+
+;; I give up.. But my point was proved.. One can use matchers in vec destructuring
