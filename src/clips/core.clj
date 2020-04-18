@@ -1,11 +1,14 @@
 (ns clips.core
+  "This a REPL session. Don't try to load this file on a REPL for
+  many forms are plainly in the ns, not wrap in functions.."
   (:require #_[clojure.core.async :as async]
     [clj-memory-meter.core :as mm]
     [clojure.edn :as edn]
-    [clojure.repl :refer [:all]]
-    [clojure.string :as string]
+    [clojure.repl :refer :all]
+    [clojure.string :as str]
     #_[spyscope.core]
-    [lambdaisland.regal :refer [regex]]))
+    [lambdaisland.regal :refer [regex]]
+    [taoensso.timbre :refer [debug spy]]))
 
 ;;;; Session 25/04/2019
 
@@ -753,3 +756,111 @@ str2/join
 ;=> "21"
 
 ;; I give up.. But my point was proved.. One can use matchers in vec destructuring
+
+;;; Session 15/03/2020
+(require '[clojure.data :as d])
+;=> nil
+(d/diff {:a {:b [1 2 3]}} {:a {:b '(1 2 3)}})
+;=> [nil nil {:a {:b [1 2 3]}}]
+;:thinking_face: It doesn't take into acount collection type
+
+(d/diff {:a {:b [1 2 3]} :c 1 :d 2} {:a {:b '(1 2 3)} :c 1 :e 3})
+;=> ({:d 2} {:e 3} {:c 1, :a {:b [1 2 3]}})
+
+;;;; Session 18/03/2020
+(let [v [1 2 3]]
+  {:original v
+   :seq (seq v)
+   :rseq (rseq v)})
+;=> {:original [1 2 3], :seq (1 2 3), :rseq (3 2 1)}
+
+;;;; Session 21/03/2020
+(let [v [1 2 3 4]]
+  {:peek (peek v)
+   :pop (pop v)})
+;; => {:peek 4, :pop [1 2 3]}
+
+(let [m {:a 1 :b 2 :c 3}]
+  {:entry-type (map type m)
+   :entry-vector? (map vector? m)})
+;; => {:entry-type
+;;     (clojure.lang.MapEntry clojure.lang.MapEntry clojure.lang.MapEntry),
+;;     :entry-vector? (true true true)}
+
+(counted? '(1 2 3))
+;; => true
+
+(counted? (seq '(1 2 3)))
+;; => true
+
+(counted? [1 2 3])
+;; => true
+
+(counted? (seq [1 2 3]))
+;; => true
+
+(defn my-lazy-seq
+  [x]
+  (lazy-seq (cons x) (my-lazy-seq (inc x))))
+;; => #'my.test/my-lazy-seq
+
+(def my-lazy-s (my-lazy-seq 1))
+;; => #'my.test/my-lazy-s
+
+(counted? my-lazy-s)
+;; => false
+
+;;;; Session 5/04/2020
+(contains? [:a :b :c] 0)
+;; => true
+(contains? #{:a :b :c} :b)
+;; => true
+(contains? {:a 1 :b 2} :b)
+;; => true
+(contains? '(:a :b :c) 1)
+;; Unhandled java.lang.IllegalArgumentException
+;; contains? not supported on type: clojure.lang.PersistentList
+
+(keys #{:a :b :c})
+;; 2. Unhandled clojure.lang.ExceptionInfo
+;; 1. Caused by java.lang.ClassCastException
+;;    class clojure.lang.Keyword cannot be cast to class
+;;    java.util.Map$Entry (clojure.lang.Keyword is in unnamed module of
+;;    loader 'app'; java.util.Map$Entry is in module java.base of loader
+;;    'bootstrap')
+
+;;;; Session 18/04/2020
+;; Shortlex order
+(ns clips.core
+  "This a REPL session. Don't try to load this file on a REPL for
+  many forms are plainly in the ns, not wrap in functions.."
+  (:require #_[clojure.core.async :as async]
+    [clj-memory-meter.core :as mm]
+    [clojure.edn :as edn]
+    [clojure.repl :refer :all]
+    [clojure.string :as str]
+    #_[spyscope.core]
+    [lambdaisland.regal :refer [regex]]
+    [taoensso.timbre :refer [debug spy]]))
+
+(compare "aa" "b");; => -1
+
+(def shortlex (fn [a b]
+                (let [ca (count a)
+                      cb (count b)]
+                  (cond
+                    (not= ca cb) (- ca cb)
+                    (= ca cb) (compare a b)))))
+
+(shortlex "b" "aa");; => -1
+
+(compare "a" "b");; => -1
+
+(sort shortlex ["b" "a"])
+;; => ("a" "b")
+
+(sort shortlex ["b" "aa"])
+;; => ("b" "aa")
+
+(sort shortlex ["b" "a" "aa" "" "A"])
+;; => ("" "A" "a" "b" "aa")
